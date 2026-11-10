@@ -25,6 +25,8 @@ data/processed/
 *.parquet
 *.duckdb
 *.db
+*.zip
+*.tar.gz
 data/users.db
 
 # Entorno y Secretos
