@@ -1,0 +1,27 @@
+{
+  "name": "sistema-indicadores",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma analítica de indicadores financieros SFPS (SEPS) - Spec-Driven Development",
+  "scripts": {
+    "contract:lint": "spectral lint contracts/openapi.yaml --ruleset contracts/.spectral.yaml --fail-severity=warn",
+    "contract:mock": "prism mock contracts/openapi.yaml -p 4010 --errors",
+    "contract:mock:dynamic": "prism mock contracts/openapi.yaml -p 4010 --dynamic",
+    "contract": "npm run contract:lint && npm run contract:mock",
+    "etl:run": ".venv\\Scripts\\python.exe etl/build_marts.py",
+    "etl:test": ".venv\\Scripts\\python.exe etl/test_marts.py",
+    "backend:test": ".venv\\Scripts\\python.exe -m pytest backend/tests/test_api.py -v",
+    "backend:dev": ".venv\\Scripts\\uvicorn.exe backend.app.main:app --reload --port 8000",
+    "frontend:codegen": "npm --prefix frontend run codegen:api",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "test": "npm run contract:lint && npm run etl:test && npm run backend:test && npm run frontend:build"
+  },
+  "devDependencies": {
+    "@stoplight/prism-cli": "^5.12.0",
+    "@stoplight/spectral-cli": "^6.14.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

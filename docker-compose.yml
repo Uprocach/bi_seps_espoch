@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sfps_backend
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      - DATA_MART_DIR=/app/data/processed/mart
+    volumes:
+      # Montura de solo lectura del Data Mart analítico Parquet (20 MB optimizados)
+      - ./data/processed/mart:/app/data/processed/mart:ro
+      # Persistencia de usuarios acreditados (SQLite)
+      - ./data/users.db:/app/data/users.db
+    networks:
+      - sfps_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\")' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: sfps_frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sfps_network
+
+networks:
+  sfps_network:
+    driver: bridge

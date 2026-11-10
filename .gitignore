@@ -1,0 +1,41 @@
+# Python
+.venv/
+__pycache__/
+**/*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Datos (volumen alto; versionar sólo metadatos/contratos)
+data/raw/
+data/interim/
+data/processed/
+*.parquet
+*.duckdb
+*.db
+data/users.db
+
+# Entorno y Secretos
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.production.example
+
+# IDEs y SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

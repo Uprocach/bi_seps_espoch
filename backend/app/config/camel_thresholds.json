@@ -1,0 +1,290 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-11-09",
+  "source": "Superintendencia de Economía Popular y Solidaria (SEPS) y Junta de Política y Regulación Financiera (JPRF) / COMF",
+  "default_rule": {
+    "higher_is_better": {
+      "warning_ratio": 0.85,
+      "critical_ratio": 0.70
+    },
+    "lower_is_better": {
+      "warning_ratio": 1.25,
+      "critical_ratio": 1.50
+    }
+  },
+  "indicators": {
+    "solvencia_patrimonial": {
+      "name": "Suficiencia Patrimonial",
+      "dimension": "capital",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 1",
+      "thresholds": {
+        "green_min": 100.0,
+        "yellow_min": 80.0,
+        "red_below": 80.0
+      },
+      "messages": {
+        "green": "Patrimonio suficiente para cubrir activos inmovilizados netos (> 100%).",
+        "yellow": "Alerta preventiva: Cobertura patrimonial de activos inmovilizados entre 80% y 100%.",
+        "red": "Déficit patrimonial crítico: Cobertura inferior al 80% normativo SEPS."
+      }
+    },
+    "seps_62_solvencia": {
+      "name": "Suficiencia de Patrimonio Técnico (Solvencia)",
+      "dimension": "capital",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "COMF Art. 190 / Resolución SEPS (Mínimo Legal 9.0%)",
+      "thresholds": {
+        "green_min": 10.0,
+        "yellow_min": 9.0,
+        "red_below": 9.0
+      },
+      "messages": {
+        "green": "Solvencia patrimonial holgada (≥ 10.0%), excede el requerimiento legal.",
+        "yellow": "Alerta temprana: Margen prudencial estrecho (entre 9.0% y 10.0%).",
+        "red": "Incumplimiento normativo severo: Patrimonio técnico menor al 9.0% regulatorio."
+      }
+    },
+    "seps_2_proporcion_de_activos_improductiv": {
+      "name": "Proporción de Activos Improductivos Netos",
+      "dimension": "capital",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 2",
+      "thresholds": {
+        "green_max": 5.0,
+        "yellow_max": 8.0,
+        "red_above": 8.0
+      },
+      "messages": {
+        "green": "Carga de activos improductivos baja y controlada (≤ 5.0%).",
+        "yellow": "Alerta de inmovilización: Activos improductivos entre 5.0% y 8.0%.",
+        "red": "Inmovilización excesiva de balance: Activos improductivos superiores al 8.0%."
+      }
+    },
+    "seps_54_cartera_improductiva_sobre_el_pa": {
+      "name": "Cartera Improductiva sobre Patrimonio",
+      "dimension": "capital",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 54",
+      "thresholds": {
+        "green_max": 20.0,
+        "yellow_max": 35.0,
+        "red_above": 35.0
+      },
+      "messages": {
+        "green": "Compromiso patrimonial por cartera en mora adecuado (≤ 20.0%).",
+        "yellow": "Riesgo de absorción patrimonial moderado (20.0% - 35.0%).",
+        "red": "Alerta crítica de insolvencia: Cartera vencida compromete más del 35.0% del patrimonio."
+      }
+    },
+    "morosidad_cartera_total": {
+      "name": "Morosidad de Cartera Total",
+      "dimension": "calidad_de_activos",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 5 / Estándar Prudencial COMF",
+      "thresholds": {
+        "green_max": 5.0,
+        "yellow_max": 8.0,
+        "red_above": 8.0
+      },
+      "messages": {
+        "green": "Nivel de morosidad óptimo y alineado al límite prudencial (≤ 5.0%).",
+        "yellow": "Alerta de riesgo de crédito: Morosidad observada en rango 5.0% a 8.0%.",
+        "red": "Deterioro crediticio crítico: Morosidad superior al 8.0%."
+      }
+    },
+    "seps_7_morosidad_de_cartera_de_consumo_p": {
+      "name": "Morosidad Cartera Consumo Prioritario",
+      "dimension": "calidad_de_activos",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 7",
+      "thresholds": {
+        "green_max": 6.0,
+        "yellow_max": 9.5,
+        "red_above": 9.5
+      },
+      "messages": {
+        "green": "Morosidad de consumo en rango controlado (≤ 6.0%).",
+        "yellow": "Riesgo crediticio moderado en consumo (6.0% - 9.5%).",
+        "red": "Mora alta en cartera de consumo (> 9.5%)."
+      }
+    },
+    "seps_9_morosidad_de_microcredito": {
+      "name": "Morosidad de Microcrédito",
+      "dimension": "calidad_de_activos",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 9",
+      "thresholds": {
+        "green_max": 6.5,
+        "yellow_max": 10.0,
+        "red_above": 10.0
+      },
+      "messages": {
+        "green": "Excelente calidad de cartera en microcrédito (≤ 6.5%).",
+        "yellow": "Vigilancia especial en microfinanzas (6.5% - 10.0%).",
+        "red": "Riesgo de cartera grave en microcrédito (> 10.0%)."
+      }
+    },
+    "cobertura_cartera_improductiva": {
+      "name": "Cobertura de Cartera Improductiva",
+      "dimension": "calidad_de_activos",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 18 (Mínimo Regulatorio 100.0%)",
+      "thresholds": {
+        "green_min": 100.0,
+        "yellow_min": 85.0,
+        "red_below": 85.0
+      },
+      "messages": {
+        "green": "Cobertura integral de provisiones sobre cartera vencida (≥ 100.0%).",
+        "yellow": "Sub-provisionamiento moderado: Cobertura entre 85.0% y 100.0%.",
+        "red": "Déficit severo de provisiones constituidas (< 85.0%)."
+      }
+    },
+    "eficiencia_operativa": {
+      "name": "Eficiencia Operativa (Gastos Operación / Activo Total)",
+      "dimension": "manejo_administrativo",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 31",
+      "thresholds": {
+        "green_max": 5.5,
+        "yellow_max": 7.5,
+        "red_above": 7.5
+      },
+      "messages": {
+        "green": "Estructura de costos operativos eficiente (≤ 5.5%).",
+        "yellow": "Carga administrativa intermedia (5.5% - 7.5%).",
+        "red": "Ineficiencia operativa: Gastos de operación excesivos frente al activo (> 7.5%)."
+      }
+    },
+    "seps_32_grado_de_absorci_n_del_margen_fi": {
+      "name": "Grado de Absorción del Margen Financiero",
+      "dimension": "manejo_administrativo",
+      "unit": "percent",
+      "polarity": "lower_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 32",
+      "thresholds": {
+        "green_max": 70.0,
+        "yellow_max": 85.0,
+        "red_above": 85.0
+      },
+      "messages": {
+        "green": "El margen financiero holgadamente absorbe los gastos operacionales (≤ 70.0%).",
+        "yellow": "Absorción moderada de ingresos por gastos de operación (70.0% - 85.0%).",
+        "red": "Gastos operativos consumen la casi totalidad del margen financiero (> 85.0%)."
+      }
+    },
+    "intermediacion_financiera": {
+      "name": "Intermediación Financiera (Cartera Bruta / Depósitos)",
+      "dimension": "manejo_administrativo",
+      "unit": "percent",
+      "polarity": "neutral",
+      "normative_reference": "SEPS Ficha Metodológica 34",
+      "thresholds": {
+        "green_min": 75.0,
+        "green_max": 92.0,
+        "yellow_min": 65.0,
+        "yellow_max": 98.0
+      },
+      "messages": {
+        "green": "Ratio de intermediación balanceado y sostenible (75.0% - 92.0%).",
+        "yellow": "Alerta de descalce o colocación conservadora/agresiva.",
+        "red": "Descalce estructural de fondeo o sobre-colocación crítica (> 98% o < 65%)."
+      }
+    },
+    "roa": {
+      "name": "Rendimiento sobre Activos (ROA)",
+      "dimension": "rentabilidad",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 35",
+      "thresholds": {
+        "green_min": 1.0,
+        "yellow_min": 0.5,
+        "red_below": 0.5
+      },
+      "messages": {
+        "green": "Rentabilidad del activo adecuada y sostenible (≥ 1.0%).",
+        "yellow": "Margen de retorno comprimido (0.5% - 1.0%).",
+        "red": "Retorno sobre activos insuficiente o en pérdidas (< 0.5%)."
+      }
+    },
+    "roe": {
+      "name": "Rendimiento sobre Patrimonio (ROE)",
+      "dimension": "rentabilidad",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 36",
+      "thresholds": {
+        "green_min": 8.0,
+        "yellow_min": 4.0,
+        "red_below": 4.0
+      },
+      "messages": {
+        "green": "Fuerte capacidad de generación interna de capital (≥ 8.0%).",
+        "yellow": "Generación de excedentes moderada (4.0% - 8.0%).",
+        "red": "Baja capacidad de capitalización o despatrimonialización (< 4.0%)."
+      }
+    },
+    "seps_37_margen_de_intermediaci_n_estimad": {
+      "name": "Margen de Intermediación Estimado",
+      "dimension": "rentabilidad",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 37",
+      "thresholds": {
+        "green_min": 5.0,
+        "yellow_min": 3.0,
+        "red_below": 3.0
+      },
+      "messages": {
+        "green": "Margen financiero bruto robusto (≥ 5.0%).",
+        "yellow": "Margen de intermediación ajustado (3.0% - 5.0%).",
+        "red": "Margen de intermediación insuficiente (< 3.0%)."
+      }
+    },
+    "liquidez_inmediata": {
+      "name": "Liquidez Inmediata (Fondos Disponibles / Depósitos Corto Plazo)",
+      "dimension": "liquidez",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 52 / Prudencial SEPS",
+      "thresholds": {
+        "green_min": 18.0,
+        "yellow_min": 14.0,
+        "red_below": 14.0
+      },
+      "messages": {
+        "green": "Posición de liquidez inmediata holgada (≥ 18.0%).",
+        "yellow": "Vigilancia de tesorería: Liquidez en rango de alerta preventiva (14.0% - 18.0%).",
+        "red": "Riesgo inminente de iliquidez: Disponibilidad inferior al 14.0%."
+      }
+    },
+    "seps_3_proporcion_de_activos_productivos": {
+      "name": "Proporción de Activos Productivos Netos",
+      "dimension": "liquidez",
+      "unit": "percent",
+      "polarity": "higher_is_better",
+      "normative_reference": "SEPS Ficha Metodológica 3",
+      "thresholds": {
+        "green_min": 80.0,
+        "yellow_min": 70.0,
+        "red_below": 70.0
+      },
+      "messages": {
+        "green": "Composición de activos generadores de rendimiento óptima (≥ 80.0%).",
+        "yellow": "Nivel moderado de activos productivos (70.0% - 80.0%).",
+        "red": "Baja productividad del balance (< 70.0%)."
+      }
+    }
+  }
+}

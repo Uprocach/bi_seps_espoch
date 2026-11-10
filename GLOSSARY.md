@@ -1,0 +1,37 @@
+# Glosario de Dominio (SEPS / SFPS / ESPOCH-DI-060)
+
+Términos y conceptos normativos oficiales utilizados en la plataforma analítica de indicadores financieros.
+
+## 1. Entidades y Supervisión
+- **SFPS**: Sector Financiero Popular y Solidario del Ecuador.
+- **SEPS**: Superintendencia de Economía Popular y Solidaria (organismo de supervisión).
+- **CUC**: Catálogo Único de Cuentas (nomenclatura contable unificada del sistema cooperativo).
+- **Estructura B11**: Formato mensual obligatorio de balance financiero remitido a la SEPS.
+- **COAC**: Cooperativa de Ahorro y Crédito.
+- **Segmentos SEPS**:
+  - `SEGMENTO_1`: Cooperativas con activos mayores a USD 80 millones.
+  - `SEGMENTO_1_MUTUALISTA`: Asociaciones mutualistas de ahorro y crédito.
+  - `SEGMENTO_2`: Cooperativas con activos entre USD 20M y 80M.
+  - `SEGMENTO_3`, `SEGMENTO_4`, `SEGMENTO_5`: Cooperativas medianas y pequeñas.
+
+## 2. Marco Analítico CAMEL
+Metodología de supervisión y calificación de riesgo financiero:
+- **C - Capital**: Solvencia patrimonial y suficiencia técnica (Fichas 1 y 62).
+- **A - Calidad de Activos (Asset Quality)**: Morosidad de cartera y cobertura de provisiones (Fichas 5 y 18).
+- **M - Manejo Administrativo (Management)**: Eficiencia operativa y gastos de personal (Ficha 31).
+- **E - Rentabilidad (Earnings)**: Rendimiento sobre activos (ROA - Ficha 35) y sobre patrimonio (ROE - Ficha 34).
+- **L - Liquidez (Liquidity)**: Fondos disponibles inmediatos sobre depósitos (Ficha 52).
+
+## 3. Convenciones Matemáticas
+- **Ratio de Sumas**: Todas las agregaciones a nivel segmento o país se computan como $\frac{\sum \text{numeradores}}{\sum \text{denominadores}}$, nunca como promedio de ratios individuales.
+- **Polaridad**:
+  - `higher_is_better`: Mientras más alto sea el valor, mejor es la salud financiera (ej. ROA, Liquidez, Cobertura).
+  - `lower_is_better`: Mientras menor sea el valor, mejor es la salud financiera (ej. Morosidad, Gastos Operativos).
+  - `neutral`: Un valor intermedio o en rango óptimo es el deseable (ej. Intermediación Financiera).
+
+## 4. Roles y Seguridad (RBAC)
+- **Vista Pública**: Indicadores agregados a nivel país y segmento, y catálogo de fichas.
+- **Capa Pro (Acreditada)**: Acceso a microdatos por cooperativa, benchmarking comparativo y exportación.
+  - `investigador`: Consulta analítica completa y exportación de microdatos en formato CSV.
+  - `auditor`: Lo anterior más descarga de reportes ejecutivos en Excel y visualización de logs de auditoría.
+  - `administrador`: Control total del sistema y gestión del padrón de usuarios acreditados.

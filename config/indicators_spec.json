@@ -1,0 +1,1328 @@
+{
+  "$id": "https://sistema-indicadores.local/config/indicators_spec.json",
+  "spec_version": "1.1.0",
+  "updated_at": "2026-11-05",
+  "title": "Catálogo de Indicadores Financieros SFPS (SEPS)",
+  "description": "Catálogo declarativo de indicadores financieros calculados a partir de la Estructura de Estados Financieros B11 de la SEPS. Es la fuente única de verdad para el ETL, el backend y el frontend.",
+  "source": {
+    "methodology": "Fichas-Metodologicas-de-Indicadores-Financieros_V3.0.pdf (SEPS, actualización 31-jul-2026)",
+    "structure": "B11 - Estados Financieros mensuales",
+    "dataset": "data/interim/situacion_financiera/estados_financieros_mensuales/*.parquet",
+    "grain": "ruc x fecha_de_corte x cuenta"
+  },
+  "expression_language": {
+    "description": "Expresiones aritméticas evaluadas por entidad y periodo.",
+    "aggregation": {
+      "default": "ratio_of_sums",
+      "description": "Para niveles 'segment' y 'country' se suman numerador y denominador de todas las entidades y luego se aplica la fórmula."
+    }
+  },
+  "components": {
+    "cartera_improductiva": {
+      "label": "Cartera improductiva bruta",
+      "accounts": [
+        "1425",
+        "1426",
+        "1427",
+        "1428",
+        "1429",
+        "1430",
+        "1431",
+        "1432",
+        "1433",
+        "1434",
+        "1435",
+        "1436",
+        "1437",
+        "1438",
+        "1439",
+        "1440",
+        "1441",
+        "1442",
+        "1443",
+        "1444",
+        "1445",
+        "1446",
+        "1447",
+        "1448",
+        "1449",
+        "1450",
+        "1451",
+        "1452",
+        "1453",
+        "1454",
+        "1455",
+        "1456",
+        "1457",
+        "1458",
+        "1459",
+        "1460",
+        "1461",
+        "1462",
+        "1463",
+        "1464",
+        "1465",
+        "1466",
+        "1467",
+        "1468",
+        "1469",
+        "1470",
+        "1471",
+        "1472",
+        "1479",
+        "1481",
+        "1483",
+        "1485",
+        "1487",
+        "1489"
+      ],
+      "expression": "sum(accounts)"
+    },
+    "cartera_bruta": {
+      "label": "Cartera bruta",
+      "expression": "c14 - c1499"
+    },
+    "provision_cartera": {
+      "label": "Provisiones de cartera de créditos (valor absoluto)",
+      "expression": "-c1499"
+    },
+    "resultado_ejercicio": {
+      "label": "Resultado del ejercicio (YTD)",
+      "expression": "c5 - c4"
+    },
+    "resultado_cierre": {
+      "label": "Utilidad/pérdida del ejercicio al cierre",
+      "expression": "c3603 + c3604"
+    },
+    "activo_promedio": {
+      "label": "Activo promedio (YTD)",
+      "expression": "avg_ytd(c1)"
+    },
+    "patrimonio_promedio": {
+      "label": "Patrimonio promedio (YTD)",
+      "expression": "avg_ytd(c3)"
+    },
+    "activos_inmovilizados_netos": {
+      "label": "Activos inmovilizados netos",
+      "expression": "cartera_improductiva + c1499 - c1901 + c16 + c17 + c18 + c19"
+    },
+    "fondos_disponibles": {
+      "label": "Fondos disponibles",
+      "expression": "c11"
+    },
+    "depositos_totales": {
+      "label": "Depósitos totales del público",
+      "expression": "c21"
+    },
+    "gastos_operacion": {
+      "label": "Gastos de operación",
+      "expression": "c45"
+    }
+  },
+  "indicators": [
+    {
+      "id": "solvencia_patrimonial",
+      "seps_ficha_number": 1,
+      "name": "Suficiencia Patrimonial",
+      "short_name": "Suficiencia Patrimonial",
+      "category": "capital",
+      "description": "Determina cuánto de los activos inmovilizados, aquellos con menor liquidez, está cubierto por el patrimonio efectivo.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(patrimonio, activos_inmovilizados_netos) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_2_proporcion_de_activos_improductiv",
+      "seps_ficha_number": 2,
+      "name": "Proporción de Activos Improductivos Netos",
+      "short_name": "Activos Improductivos",
+      "category": "capital",
+      "description": "Mide la participación de los activos improductivos   netos que mantiene la institución en relación con  sus   activos totales.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(activos_inmovilizados_netos, c1) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_3_proporcion_de_activos_productivos",
+      "seps_ficha_number": 3,
+      "name": "Proporción de Activos Productivos Netos",
+      "short_name": "Activos Productivos",
+      "category": "liquidez",
+      "description": "Mide la calidad de las colocaciones o la proporción de  activos que generan rendimientos.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(activos_productivos, c1) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_4_utilizaci_n_del_pasivo_con_costo_",
+      "seps_ficha_number": 4,
+      "name": "Utilización del Pasivo con Costo en Relación a la",
+      "short_name": "Utilización Pasivo",
+      "category": "liquidez",
+      "description": "Mide la eficiente utilización de pasivos con costo  como fuente de productividad.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(cartera_bruta, depositos_totales) * 100",
+      "access": "public"
+    },
+    {
+      "id": "morosidad_cartera_total",
+      "seps_ficha_number": 5,
+      "name": "Morosidad de Cartera Total",
+      "short_name": "Morosidad Total",
+      "category": "calidad_de_activos",
+      "description": "Mide el porcentaje de la cartera improductiva frente   al total de la cartera (proporción de la cartera que se   encuentra en mora). Los ratios de morosidad se   calculan para el total de la cartera b",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(cartera_improductiva, cartera_bruta) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_6_morosidad_de_cartera_comercial_pr",
+      "seps_ficha_number": 6,
+      "name": "Morosidad de Cartera Comercial Prioritario",
+      "short_name": "Comercial Prioritario",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   comercial prioritario frente al total de cartera bruta   comercia prioritario.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐶𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑃𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝐶𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑃𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_7_morosidad_de_cartera_de_consumo_p",
+      "seps_ficha_number": 7,
+      "name": "Morosidad de Cartera de Consumo Prioritario",
+      "short_name": "De Consumo Prioritario",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   de consumo prioritario  frente al total de cartera bruta   de consumo prioritario.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝐶𝑜𝑛𝑠𝑢𝑚𝑜 𝑃𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝑑𝑒 𝐶𝑜𝑛𝑠𝑢𝑚𝑜 𝑃𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_8_morosidad_de_cartera_inmobiliaria",
+      "seps_ficha_number": 8,
+      "name": "Morosidad de Cartera Inmobiliaria",
+      "short_name": "Inmobiliaria",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera inmobiliaria improductiva   frente al total de cartera inmobiliaria bruta.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐼𝑛𝑚𝑜𝑏𝑖𝑙𝑖𝑎𝑟𝑖𝑎  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝐼𝑛𝑚𝑜𝑏𝑖𝑙𝑖𝑎𝑟𝑖𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_9_morosidad_de_microcredito",
+      "seps_ficha_number": 9,
+      "name": "Morosidad de Microcrédito",
+      "short_name": "Morosidad Microcrédito",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   de microcrédito  frente al total de cartera bruta   de microcrédito.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(cartera_improductiva_micro, cartera_bruta_micro) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_10_morosidad_de_cartera_productiva",
+      "seps_ficha_number": 10,
+      "name": "Morosidad de Cartera Productiva",
+      "short_name": "Productiva",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   productiva frente al total de cartera bruta   productiva.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑃𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝑃𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_11_morosidad_de_cartera_comercial_o",
+      "seps_ficha_number": 11,
+      "name": "Morosidad de Cartera Comercial Ordinario",
+      "short_name": "Comercial Ordinario",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   comercial ordinario frente al total de cartera bruta   comercia ordinario.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐶𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑂𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝐶𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑂𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_12_morosidad_de_cartera_de_consumo_",
+      "seps_ficha_number": 12,
+      "name": "Morosidad de Cartera de Consumo Ordinario",
+      "short_name": "De Consumo Ordinario",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   de consumo ordinario  frente al total de cartera bruta   de consumo ordinario.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝐶𝑜𝑛𝑠𝑢𝑚𝑜 𝑂𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝑑𝑒 𝐶𝑜𝑛𝑠𝑢𝑚𝑜 𝑂𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_13_morosidad_de_cartera_de_vivienda",
+      "seps_ficha_number": 13,
+      "name": "Morosidad de Cartera de Vivienda de Interés",
+      "short_name": "De Vivienda de Interés",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   de vivienda de interés público  frente al total de cartera bruta   de vivienda de interés pú",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑉𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝑑𝑒 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑃ú𝑏𝑙𝑖𝑐𝑜  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝑑𝑒 𝑉𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝑑𝑒 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑃ú𝑏𝑙𝑖𝑐𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_14_morosidad_de_cartera_educativa",
+      "seps_ficha_number": 14,
+      "name": "Morosidad de Cartera Educativa",
+      "short_name": "Educativa",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   educativa frente al total de cartera bruta   educativa.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐸𝑑𝑢𝑐𝑎𝑡𝑖𝑣𝑎  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝐸𝑑𝑢𝑐𝑎𝑡𝑖𝑣𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_15_morosidad_de_cartera_comercial",
+      "seps_ficha_number": 15,
+      "name": "Morosidad de Cartera Comercial",
+      "short_name": "Comercial",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   comercial frente al total de cartera bruta   comercial.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐶𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝐶𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_16_morosidad_de_cartera_de_consumo",
+      "seps_ficha_number": 16,
+      "name": "Morosidad de Cartera de Consumo",
+      "short_name": "Morosidad Consumo",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   de consumo  frente al total de cartera bruta   de consumo.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(cartera_improductiva_consu, cartera_bruta_consu) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_17_morosidad_de_cartera_de_vivienda",
+      "seps_ficha_number": 17,
+      "name": "Morosidad de Cartera de Vivienda",
+      "short_name": "De Vivienda",
+      "category": "calidad_de_activos",
+      "description": "Indica el retraso o incumplimiento de pago y se mide   a través del porcentaje de la cartera improductiva   de vivienda  frente al total de cartera bruta   de vivienda.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐼𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑉𝑖𝑣𝑖𝑒𝑛𝑑𝑎  𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝐵𝑟𝑢𝑡𝑎 𝑑𝑒 𝑉𝑖𝑣𝑖𝑒𝑛𝑑𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "cobertura_cartera_improductiva",
+      "seps_ficha_number": 18,
+      "name": "Cobertura de la Cartera Problemática",
+      "short_name": "Cobertura Problemática",
+      "category": "calidad_de_activos",
+      "description": "Mide el nivel de protección que la entidad asume ante el riesgo  de  cartera morosa. La relación mientras más alta es mejor. Los ratios de  cobertura se calculan para el t otal de la cartera improduct",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(provision_cartera, cartera_improductiva) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_19_cobertura_de_la_cartera_de_cr_di",
+      "seps_ficha_number": 19,
+      "name": "Cobertura de la Cartera de Créditos Comercial",
+      "short_name": "Comercial",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito comercial prioritario  que registra problemas de incobrabilidad que se encuentra cubierta  por provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑙𝑎 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_20_cobertura_de_la_cartera_de_cr_di",
+      "seps_ficha_number": 20,
+      "name": "Cobertura de la Cartera de Créditos de",
+      "short_name": "De",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de cr édito de consumo  prioritario que registra problemas de incobrabilidad que se encuentra  cubierta por provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑙𝑎 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_21_cobertura_de_la_cartera_inmobili",
+      "seps_ficha_number": 21,
+      "name": "Cobertura de la Cartera Inmobiliaria",
+      "short_name": "Inmobiliaria",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de cr édito inmobiliario que  registra problemas de incobrabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑛𝑚𝑜𝑏𝑖𝑙𝑖𝑎𝑟𝑖𝑎 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑖𝑛𝑚𝑜𝑏𝑖𝑙𝑖𝑎𝑟𝑖𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_22_cobertura_de_la_cartera_de_micro",
+      "seps_ficha_number": 22,
+      "name": "Cobertura de la Cartera de Microcrédito",
+      "short_name": "De Microcrédito",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de microcrédito que registra  problemas de incobrabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑚𝑖𝑐𝑟𝑜𝑐𝑟é𝑑𝑖𝑡𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑚𝑖𝑐𝑟𝑜𝑐𝑟é𝑑𝑖𝑡𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_23_cobertura_de_la_cartera_producti",
+      "seps_ficha_number": 23,
+      "name": "Cobertura de la Cartera Productiva",
+      "short_name": "Productiva",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito productivo que  registra problemas de incob rabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_24_cobertura_de_la_cartera_comercia",
+      "seps_ficha_number": 24,
+      "name": "Cobertura de la Cartera Comercial Ordinario",
+      "short_name": "Comercial Ordinario",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito comercial ordinario  que registra problemas de incobrabilidad que se encuentra cubi erta  por provisiones.  E. ASPECTOS METODOLÓGICOS",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_25_cobertura_de_la_cartera_de_consu",
+      "seps_ficha_number": 25,
+      "name": "Cobertura de la Cartera de Consumo Ordinario",
+      "short_name": "De Consumo Ordinario",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito de consumo ordinario  que registra problemas de incobrabilidad que se encuentra cubierta  por provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_26_cobertura_de_la_cartera_de_vivie",
+      "seps_ficha_number": 26,
+      "name": "Cobertura de la Cartera de Vivienda de Interés",
+      "short_name": "De Vivienda de Interés",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito vivienda de interés  público que registra problemas de incobrabilidad que se encuentra  cubierta por provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑣𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝑑𝑒 𝑖𝑛𝑡𝑒𝑟é𝑠 𝑝ú𝑏𝑙𝑖𝑐𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑣𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝑑𝑒 𝑖𝑛𝑡𝑒𝑟é𝑠 𝑝ú𝑏𝑙𝑖𝑐𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_27_cobertura_de_la_cartera_de_cr_di",
+      "seps_ficha_number": 27,
+      "name": "Cobertura de la Cartera de Crédito Educativo",
+      "short_name": "De Crédito Educativo",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito educativo que  registra problemas de incobrabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜 𝑒𝑑𝑢𝑐𝑎𝑡𝑖𝑣𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜 𝑒𝑑𝑢𝑐𝑎𝑡𝑖𝑣𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_28_cobertura_de_la_cartera_comercia",
+      "seps_ficha_number": 28,
+      "name": "Cobertura de la Cartera Comercial",
+      "short_name": "Comercial",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de crédito comercial que  registra problemas de incobrabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_29_cobertura_de_la_cartera_de_consu",
+      "seps_ficha_number": 29,
+      "name": "Cobertura de la Cartera de Consumo",
+      "short_name": "De Consumo",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de cr édito de consumo que  registra problemas de incobrabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_30_cobertura_de_la_cartera_de_vivie",
+      "seps_ficha_number": 30,
+      "name": "Cobertura de la Cartera de Vivienda",
+      "short_name": "De Vivienda",
+      "category": "calidad_de_activos",
+      "description": "Determina la proporción de la cartera de créd ito de vivienda que  registra problemas de incobrabilidad que se encuentra cubierta por  provisiones.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑟𝑜𝑣𝑖𝑠𝑖ó𝑛 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑣𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝐶𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑚𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑎 𝑑𝑒 𝑣𝑖𝑣𝑖𝑒𝑛𝑑𝑎",
+      "access": "accredited"
+    },
+    {
+      "id": "eficiencia_operativa",
+      "seps_ficha_number": 31,
+      "name": "Eficiencia Operativa",
+      "short_name": "Eficiencia Operativa",
+      "category": "manejo_administrativo",
+      "description": "Representa la p roporción de gastos operativos utilizados en la administración del activo total.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(annualize(gastos_operacion), activo_promedio) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_32_grado_de_absorci_n_del_margen_fi",
+      "seps_ficha_number": 32,
+      "name": "Grado de Absorción del Margen Financiero Neto",
+      "short_name": "Absorción Margen Neto",
+      "category": "manejo_administrativo",
+      "description": "Establece el nivel de absorción de los egresos   operacionales en los ingresos provenientes de la   gestión operativa.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(gastos_operacion, margen_financiero_neto) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_33_eficiencia_administrativa_de_per",
+      "seps_ficha_number": 33,
+      "name": "Eficiencia Administrativa de Personal",
+      "short_name": "Eficiencia de Personal",
+      "category": "manejo_administrativo",
+      "description": "Mide la proporción de gastos de personal implícito   utilizados en la administración y manejo de los   activos.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(annualize(gastos_personal), activo_promedio) * 100",
+      "access": "public"
+    },
+    {
+      "id": "roe",
+      "seps_ficha_number": 34,
+      "name": "ROE",
+      "short_name": "ROE",
+      "category": "rentabilidad",
+      "description": "Mide el nivel de reto rno generado por el patrimonio invertido por los accionistas de la entidad financiera",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(annualize(resultado_ejercicio), patrimonio_promedio) * 100",
+      "methodological_note": "Excedente antes de impuestos de Ene-Nov vs. Excedente neto en Dic",
+      "access": "public"
+    },
+    {
+      "id": "roa",
+      "seps_ficha_number": 35,
+      "name": "ROA",
+      "short_name": "ROA",
+      "category": "rentabilidad",
+      "description": "Mide el nivel de retorno generado por el activo. Es  una medida de eficacia en el manejo de los recursos  de la entidad.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(annualize(resultado_ejercicio), activo_promedio) * 100",
+      "methodological_note": "Excedente antes de impuestos de Ene-Nov vs. Excedente neto en Dic",
+      "access": "public"
+    },
+    {
+      "id": "intermediacion_financiera",
+      "seps_ficha_number": 36,
+      "name": "Intermediación Financiera",
+      "short_name": "Intermediación Financiera",
+      "category": "manejo_administrativo",
+      "description": "Mide el nivel de préstamos o créditos otorgados en   relación a la cantidad de depósitos efectuados por   parte de los depositantes en una entidad.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "neutral",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(cartera_bruta, depositos_totales) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_37_margen_de_intermediaci_n_estimad",
+      "seps_ficha_number": 37,
+      "name": "Margen de Intermediación Estimado sobre",
+      "short_name": "Margen de Intermediación ...",
+      "category": "rentabilidad",
+      "description": "Mide la rentabilidad de la gestión operativa en   relación al patrimonio promedio. La relación entre   más alta es mejor.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "neutral",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑀𝑎𝑟𝑔𝑒𝑛 𝑑𝑒 𝑖𝑛𝑡𝑒𝑟𝑚𝑒𝑑𝑖𝑎𝑐𝑖ó𝑛 𝑒𝑠𝑡𝑖𝑚𝑎𝑑𝑜  𝑃𝑎𝑡𝑟𝑖𝑚𝑜𝑛𝑖𝑜 𝑝𝑟𝑜𝑚𝑒𝑑𝑖𝑜",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_38_margen_de_intermediaci_n_estimad",
+      "seps_ficha_number": 38,
+      "name": "Margen de Intermediación Estimado sobre Activo",
+      "short_name": "Margen Intermediación",
+      "category": "rentabilidad",
+      "description": "Mide la rentabilidad de la gestión operativa en   relación con los activos generadores de ingresos. La   relación entre más alta es mejor.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "neutral",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(annualize(margen_intermediacion_est), activo_promedio) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_39_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 39,
+      "name": "Rendimiento de la Cartera de Crédito Comercial",
+      "short_name": "Comercial",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito comercial prioritaria por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_40_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 40,
+      "name": "Rendimiento de la Cartera de Crédito de",
+      "short_name": "De",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito de consumo prioritaria por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑎𝑟𝑖𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_41_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 41,
+      "name": "Rendimiento de la Cartera de Crédito de",
+      "short_name": "De",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito de consumo por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_42_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 42,
+      "name": "Rendimiento de la Cartera de Crédito Inmobiliario",
+      "short_name": "Crédito Inmobiliario",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito inmobiliario por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑛𝑚𝑜𝑏𝑖𝑙𝑖𝑎𝑟𝑖𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑖𝑛𝑚𝑜𝑏𝑖𝑙𝑖𝑎𝑟𝑖𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_43_rendimiento_de_la_cartera_de_mic",
+      "seps_ficha_number": 43,
+      "name": "Rendimiento de la Cartera de Microcrédito por",
+      "short_name": "Microcrédito por",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de microcrédito por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑚𝑖𝑐𝑟𝑜𝑐𝑟é𝑑𝑖𝑡𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑚𝑖𝑐𝑟𝑜𝑐𝑟é𝑑𝑖𝑡𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_44_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 44,
+      "name": "Rendimiento de la Cartera de Crédito Productivo",
+      "short_name": "Productivo",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito productivo por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜 𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑜 𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜 𝑝𝑟𝑜𝑑𝑢𝑐𝑡𝑖𝑣𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_45_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 45,
+      "name": "Rendimiento de la Cartera de Crédito Comercial",
+      "short_name": "Comercial",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito comercial ordinario por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑐𝑜𝑚𝑒𝑟𝑐𝑖𝑎𝑙 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_46_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 46,
+      "name": "Rendimiento de la Cartera de Crédito de",
+      "short_name": "De",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito de consumo ordinario por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑜𝑛𝑠𝑢𝑚𝑜 𝑜𝑟𝑑𝑖𝑛𝑎𝑟𝑖𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_47_rendimiento_de_la_cartera_de_viv",
+      "seps_ficha_number": 47,
+      "name": "Rendimiento de la Cartera de Vivienda de Interés",
+      "short_name": "Vivienda de Interés",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito de vivienda de interés público por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑣𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝑑𝑒 𝑖𝑛𝑡𝑒𝑟é𝑠 𝑝ú𝑏𝑙𝑖𝑐𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑣𝑖𝑣𝑖𝑒𝑛𝑑𝑎 𝑑𝑒 𝑖𝑛𝑡𝑒𝑟é𝑠 𝑝ú𝑏𝑙𝑖𝑐𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_48_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 48,
+      "name": "Rendimiento de la Cartera de Crédito Educativo",
+      "short_name": "Educativo",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de crédito educativo por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜 𝑒𝑑𝑢𝑐𝑎𝑡𝑖𝑣𝑜𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜 𝑒𝑑𝑢𝑐𝑎𝑡𝑖𝑣𝑜 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_49_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 49,
+      "name": "Rendimiento de la Cartera de Créditos",
+      "short_name": "S",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de créditos refinanciada por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜𝑠 𝑟𝑒𝑓𝑖𝑛𝑎𝑛𝑐𝑖𝑎𝑑𝑎𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜𝑠 𝑟𝑒𝑓𝑖𝑛𝑎𝑛𝑐𝑖𝑎𝑑𝑎 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_50_rendimiento_de_la_cartera_de_cr_",
+      "seps_ficha_number": 50,
+      "name": "Rendimiento de la Cartera de Créditos",
+      "short_name": "S",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de créditos reestructurados",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(( 𝐼𝑛𝑡𝑒𝑟é𝑠 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜𝑠 𝑟𝑒𝑒𝑠𝑡𝑟𝑢𝑐𝑡𝑢𝑟𝑎𝑑𝑎𝑃𝑟𝑜𝑚𝑒𝑑𝑖𝑜 𝑑𝑒 𝑐𝑎𝑟𝑡𝑒𝑟𝑎 𝑑𝑒 𝑐𝑟é𝑑𝑖𝑡𝑜𝑠 𝑟𝑒𝑒𝑠𝑡𝑟𝑢𝑐𝑡𝑢𝑟𝑎𝑑𝑜𝑠 𝑝𝑜𝑟 𝑣𝑒𝑛𝑐𝑒𝑟) 𝑁ú𝑚𝑒𝑟𝑜 𝑑𝑒 𝑀𝑒𝑠 ∗ 12)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_51_rendimiento_de_la_cartera_por_ve",
+      "seps_ficha_number": 51,
+      "name": "Rendimiento de la Cartera por Vencer Total",
+      "short_name": "Rendimiento Cartera",
+      "category": "rentabilidad",
+      "description": "Mide el rendimiento de la cartera de créditos por vencer",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(annualize(intereses_cartera), cartera_por_vencer) * 100",
+      "access": "public"
+    },
+    {
+      "id": "liquidez_inmediata",
+      "seps_ficha_number": 52,
+      "name": "Liquidez: Fondos Disponibles sobre Total de",
+      "short_name": "Liquidez Inmediata",
+      "category": "liquidez",
+      "description": "Proporción de fondos líquidos frente a los depósitos a la vista y a corto plazo (1-90 días) según Ficha 52 SEPS.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(fondos_disponibles, depositos_corto_plazo) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_53_cartera_improductiva_descubierta",
+      "seps_ficha_number": 53,
+      "name": "Cartera Improductiva Descubierta en Relación",
+      "short_name": "Improd. / Patr. + Res.",
+      "category": "capital",
+      "description": "Mide la p roporción de cartera que tiene  potencialidad de  incobrabilidad y no convertirse en  un ingreso para la entidad y  posteriormente en un  recurso para acrecentar el patrimonio.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(Total Cartera ImproductivaPatrimonio + Resultados ) ∗ 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_54_cartera_improductiva_sobre_el_pa",
+      "seps_ficha_number": 54,
+      "name": "Cartera Improductiva sobre el Patrimonio de",
+      "short_name": "Improd. / Patrimonio",
+      "category": "capital",
+      "description": "Mide la proporción de cartera que tiene   potencialidad de incobrabilidad y no convertirse en   un ingreso para la entidad y posteriormente en un   recurso para acrecentar el patrimonio.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "(Total Cartera ImproductivaPatrimonio ) ∗ 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_55_fk_patrimonio_resultados_ingreso",
+      "seps_ficha_number": 55,
+      "name": "Fk = (patrimonio + Resultados – Ingresos",
+      "short_name": "Fondo Patrimonial FK",
+      "category": "liquidez",
+      "description": "Mide el verdadero (al restar los ingresos   extraordinarios) porcentaje de compromiso del   patrimonio para con la entidad.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(patrimonio_ajustado, c1) * 100",
+      "access": "public"
+    },
+    {
+      "id": "seps_56_fi_1_activos_improductivos_activ",
+      "seps_ficha_number": 56,
+      "name": "Fi = 1 + (activos Improductivos / Activos Totales)",
+      "short_name": "Fi = 1 + (activos Improdu...",
+      "category": "manejo_administrativo",
+      "description": "Mide el cambio relat ivo de la participación de los  activos  improductivos netos que mantiene la  institución en relación a sus  activos totales.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "lower_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "((1 ∗ 100) +  (Activos Improductivos Netos𝑇𝑜𝑡𝑎𝑙 𝑑𝑒 𝐴𝑐𝑡𝑖𝑣𝑜𝑠 ))",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_57_indice_de_capitalizaci_n_neto_fk",
+      "seps_ficha_number": 57,
+      "name": "Indice de Capitalización Neto: Fk/fi",
+      "short_name": "Indice de Capitalización ...",
+      "category": "manejo_administrativo",
+      "description": "Mide la relación entre el capital neto y los activos  sujetos a riesgo, es una medición de la solvencia.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "((𝐹𝐾𝐹𝐼 ) ∗ 100)",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_58_patrimonio_t_cnico_primario",
+      "seps_ficha_number": 58,
+      "name": "Patrimonio Técnico Primario",
+      "short_name": "Patrimonio Técnico Primario",
+      "category": "capital",
+      "description": "Es aquel constituido por cuentas patrimoniales líquidas, permanentes y de mejor calidad.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "sum(cuentas_patrimoniales_primarias)",
+      "status": "active",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_59_patrimonio_t_cnico_secundario",
+      "seps_ficha_number": 59,
+      "name": "Patrimonio Técnico Secundario",
+      "short_name": "Patrimonio Técnico Secund...",
+      "category": "capital",
+      "description": "Es aquel constituido por las cuentas patrimoniales que no forman parte del patrimonio técnico primario.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "sum(cuentas_patrimoniales_secundarias)",
+      "status": "active",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_60_patrimonio_t_cnico_constituido",
+      "seps_ficha_number": 60,
+      "name": "Patrimonio Técnico Constituido",
+      "short_name": "Patrimonio Técnico Consti...",
+      "category": "capital",
+      "description": "Es el valor patrimonial que dispone la entidad para respaldar las  operaciones actuales y futuras y cubrir pérdidas inesperadas. El PTC  se compone de patrimonio técnico primario y patrimonio técnico",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "patrimonio_primario + patrimonio_secundario",
+      "status": "active",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_61_activos_y_contingentes_ponderado",
+      "seps_ficha_number": 61,
+      "name": "Activos y Contingentes Ponderados por Riesgo",
+      "short_name": "Activos y Contingentes Po...",
+      "category": "capital",
+      "description": "Es el resultado que se obtiene de multiplicar las ponderaciones de  acuerdo al nivel de riesgo por el saldo de cada uno de los activos y  operaciones contingentes.",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "sum(activos_ponderados_por_riesgo)",
+      "status": "active",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_62_solvencia",
+      "seps_ficha_number": 62,
+      "name": "Solvencia",
+      "short_name": "Solvencia",
+      "category": "capital",
+      "description": "Es la suficiencia patrimonial que deben mantener en todo tiempo las  entidades para respaldar las operaciones actuales y futuras, para  cubrir las pérdidas no protegidas por las provisiones de los act",
+      "unit": "percent",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "safe_div(patrimonio_tecnico_constituido, activos_ponderados_riesgo) * 100",
+      "status": "active",
+      "access": "accredited"
+    },
+    {
+      "id": "seps_63_porcentaje_t_cnico_requerido",
+      "seps_ficha_number": 63,
+      "name": "Porcentaje Técnico Requerido",
+      "short_name": "Porcentaje Técnico Requerido",
+      "category": "capital",
+      "description": "Es el valor patrimonial que requiere la entidad para respaldar sus  operaciones. Se obtiene de multiplicar los activos y contingentes  ponderados por riesgo por el porcentaje mínimo de solvencia defin",
+      "unit": "usd",
+      "decimals": 2,
+      "polarity": "higher_is_better",
+      "frequency": "monthly",
+      "levels": [
+        "entity",
+        "segment",
+        "country"
+      ],
+      "formula": "𝑃𝑇𝑅 =  𝐴𝐶𝑃𝑅 ∗ 𝑃𝑀𝑆  Donde:  𝑷𝑻𝑹 Porcentaje técnico requerido  𝑷𝑴𝑺 Porcentaje mínimo requerido  𝑨𝑪𝑷𝑹 Activos contingentes ponderados por riesgo",
+      "access": "accredited"
+    }
+  ]
+}

@@ -1,0 +1,1012 @@
+openapi: 3.1.0
+info:
+  title: Sistema de Indicadores Financieros SFPS
+  version: 1.0.0
+  summary: API analítica de indicadores financieros del sector cooperativo ecuatoriano (SEPS).
+  description: |
+    Contrato vinculante (Spec-Driven Development) de la plataforma analítica de indicadores
+    financieros del Sector Financiero Popular y Solidario (SFPS) del Ecuador.
+
+    * **Fuente de datos:** Estructura de Estados Financieros **B11** publicada por la SEPS.
+    * **Metodología:** Fichas Metodológicas de Indicadores Financieros V3.0 (SEPS).
+    * **Catálogo de indicadores:** `config/indicators_spec.json` (fuente única de verdad de fórmulas).
+
+    Convenciones:
+    * Los periodos se expresan como `YYYY-MM` (mes de la fecha de corte).
+    * Los indicadores se expresan en porcentaje (`unit: percent`), p. ej. `7.84` = 7,84 %.
+    * Para los niveles `segment` y `country` se agrega como *ratio de sumas* (numerador y
+      denominador sumados entre entidades), no como promedio de ratios.
+    * Los errores siguen RFC 9457 (`application/problem+json`).
+  contact:
+    name: Equipo Sistema de Indicadores
+    email: indicadores@example.com
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: http://localhost:8000
+    description: Backend FastAPI (desarrollo local)
+  - url: http://127.0.0.1:4010
+    description: Servidor mock Prism
+tags:
+  - name: Metadata
+    description: Catálogos para poblar filtros de la interfaz (segmentos, provincias, periodos, indicadores).
+  - name: Entities
+    description: Directorio de entidades financieras (cooperativas y mutualistas) supervisadas por la SEPS.
+  - name: Indicators
+    description: Series de tiempo de indicadores financieros a nivel país, segmento o entidad.
+
+paths:
+  /api/v1/metadata/filters:
+    get:
+      tags: [Metadata]
+      operationId: getMetadataFilters
+      summary: Catálogos de filtros
+      description: |
+        Devuelve los valores disponibles para los filtros globales del dashboard: segmentos,
+        provincias, rango de periodos con datos y catálogo de indicadores calculables.
+      responses:
+        '200':
+          description: Catálogos de filtros disponibles.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiltersMetadata'
+              examples:
+                default:
+                  summary: Catálogo vigente (datos hasta dic-2025)
+                  value:
+                    segments:
+                      - code: SEGMENTO_1
+                        label: Segmento 1
+                        reporting_frequency: monthly
+                        entity_count: 43
+                      - code: SEGMENTO_1_MUTUALISTA
+                        label: Segmento 1 - Mutualistas
+                        reporting_frequency: monthly
+                        entity_count: 4
+                      - code: SEGMENTO_2
+                        label: Segmento 2
+                        reporting_frequency: monthly
+                        entity_count: 63
+                      - code: SEGMENTO_3
+                        label: Segmento 3
+                        reporting_frequency: monthly
+                        entity_count: 93
+                    provinces:
+                      - code: '01'
+                        name: AZUAY
+                        entity_count: 31
+                      - code: '17'
+                        name: PICHINCHA
+                        entity_count: 99
+                      - code: '18'
+                        name: TUNGURAHUA
+                        entity_count: 75
+                    periods:
+                      frequency: monthly
+                      min: '2018-01'
+                      max: '2025-12'
+                      latest: '2025-12'
+                      available: ['2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12']
+                    indicators:
+                      - id: morosidad_cartera_total
+                        name: Morosidad de cartera total
+                        short_name: Morosidad
+                        category: calidad_de_activos
+                        unit: percent
+                        decimals: 2
+                        polarity: lower_is_better
+                        seps_ficha_number: 5
+                      - id: cobertura_cartera_improductiva
+                        name: Cobertura de la cartera improductiva (problemática)
+                        short_name: Cobertura
+                        category: calidad_de_activos
+                        unit: percent
+                        decimals: 2
+                        polarity: higher_is_better
+                        seps_ficha_number: 18
+                      - id: roa
+                        name: Rentabilidad sobre activos (ROA)
+                        short_name: ROA
+                        category: rentabilidad
+                        unit: percent
+                        decimals: 2
+                        polarity: higher_is_better
+                        seps_ficha_number: 35
+                      - id: solvencia_patrimonial
+                        name: Solvencia patrimonial (Suficiencia patrimonial)
+                        short_name: Suficiencia patrimonial
+                        category: capital
+                        unit: percent
+                        decimals: 2
+                        polarity: higher_is_better
+                        seps_ficha_number: 1
+                    data_as_of: '2025-12-31'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/entities:
+    get:
+      tags: [Entities]
+      operationId: listEntities
+      summary: Listado de entidades
+      description: |
+        Lista paginada de cooperativas y mutualistas con filtros por segmento, provincia,
+        texto libre (razón social o RUC) y estado de reporte.
+      parameters:
+        - $ref: '#/components/parameters/SegmentFilter'
+        - $ref: '#/components/parameters/ProvinceFilter'
+        - name: q
+          in: query
+          description: Búsqueda parcial, sin distinción de mayúsculas, por razón social o RUC.
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+            example: jardin
+        - name: active
+          in: query
+          description: Si es `true`, sólo entidades que reportaron en el último periodo disponible.
+          required: false
+          schema:
+            type: boolean
+            default: true
+            example: true
+        - name: sort
+          in: query
+          description: Campo de ordenamiento. Prefijo `-` para orden descendente.
+          required: false
+          schema:
+            type: string
+            enum: [razon_social, -razon_social, total_assets_usd, -total_assets_usd]
+            default: -total_assets_usd
+            example: -total_assets_usd
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de entidades que cumplen los filtros.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityListResponse'
+              examples:
+                default:
+                  summary: Entidades del Segmento 1 ordenadas por activo
+                  value:
+                    data:
+                      - ruc: '0190155722001'
+                        razon_social: COOPERATIVA DE AHORRO Y CREDITO JARDIN AZUAYO LIMITADA
+                        entity_type: COOPERATIVA
+                        segment: SEGMENTO_1
+                        province:
+                          code: '01'
+                          name: AZUAY
+                        total_assets_usd: 2276134441.47
+                        first_period: '2018-01'
+                        last_period: '2025-12'
+                        is_active: true
+                      - ruc: '1790866084001'
+                        razon_social: COOPERATIVA DE AHORRO Y CREDITO POLICIA NACIONAL LIMITADA
+                        entity_type: COOPERATIVA
+                        segment: SEGMENTO_1
+                        province:
+                          code: '17'
+                          name: PICHINCHA
+                        total_assets_usd: 1482857501.1
+                        first_period: '2018-01'
+                        last_period: '2025-12'
+                        is_active: true
+                    pagination:
+                      page: 1
+                      page_size: 2
+                      total_items: 43
+                      total_pages: 22
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/indicators/series:
+    get:
+      tags: [Indicators]
+      operationId: getIndicatorSeries
+      summary: Series de tiempo de un indicador
+      description: |
+        Devuelve la serie mensual de un indicador para el nivel solicitado:
+
+        * `level=country`: una única serie del sistema (todas las entidades).
+        * `level=segment`: una serie por segmento. `segment` filtra los segmentos devueltos (opcional).
+        * `level=entity`: una serie por RUC. **`ruc` es obligatorio** (máx. 10).
+
+        `province` restringe el universo de entidades antes de agregar. Si se omite `from`/`to`
+        se devuelven los últimos 12 periodos disponibles. Combinaciones inválidas de parámetros
+        (p. ej. `level=entity` sin `ruc`, o `from` > `to`) responden `422`.
+      parameters:
+        - name: indicator
+          in: query
+          description: Identificador del indicador (ver `config/indicators_spec.json`).
+          required: true
+          schema:
+            $ref: '#/components/schemas/IndicatorId'
+        - name: level
+          in: query
+          description: Nivel de agregación de la serie.
+          required: true
+          schema:
+            $ref: '#/components/schemas/AggregationLevel'
+        - $ref: '#/components/parameters/SegmentFilter'
+        - $ref: '#/components/parameters/ProvinceFilter'
+        - name: ruc
+          in: query
+          description: RUC(s) de las entidades. Obligatorio cuando `level=entity`.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 10
+            uniqueItems: true
+            items:
+              $ref: '#/components/schemas/Ruc'
+            example: ['1790866084001', '0190021513001']
+        - name: from
+          in: query
+          description: Periodo inicial (inclusive), formato `YYYY-MM`.
+          required: false
+          schema:
+            $ref: '#/components/schemas/Period'
+        - name: to
+          in: query
+          description: Periodo final (inclusive), formato `YYYY-MM`.
+          required: false
+          schema:
+            $ref: '#/components/schemas/Period'
+      responses:
+        '200':
+          description: Serie(s) de tiempo del indicador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorSeriesResponse'
+              examples:
+                country:
+                  summary: Morosidad total - nivel país (oct-dic 2025)
+                  value:
+                    indicator:
+                      id: morosidad_cartera_total
+                      name: Morosidad de cartera total
+                      short_name: Morosidad
+                      category: calidad_de_activos
+                      unit: percent
+                      decimals: 2
+                      polarity: lower_is_better
+                      seps_ficha_number: 5
+                    level: country
+                    frequency: monthly
+                    period_range:
+                      from: '2025-10'
+                      to: '2025-12'
+                    filters_applied:
+                      segment: []
+                      province: []
+                      ruc: []
+                    series:
+                      - key: EC
+                        label: Sistema SFPS (Segmentos 1-3 y Mutualistas)
+                        level: country
+                        points:
+                          - period: '2025-10'
+                            value: 8.21
+                            numerator: 1635093832.4
+                            denominator: 19903936303.51
+                            entity_count: 208
+                          - period: '2025-11'
+                            value: 8.2
+                            numerator: 1637393611.66
+                            denominator: 19956156757.25
+                            entity_count: 208
+                          - period: '2025-12'
+                            value: 7.84
+                            numerator: 1562063234.78
+                            denominator: 19914112605.29
+                            entity_count: 203
+                    generated_at: '2026-01-15T10:30:00Z'
+                segment:
+                  summary: Morosidad total - Segmentos 1 y 2
+                  value:
+                    indicator:
+                      id: morosidad_cartera_total
+                      name: Morosidad de cartera total
+                      short_name: Morosidad
+                      category: calidad_de_activos
+                      unit: percent
+                      decimals: 2
+                      polarity: lower_is_better
+                      seps_ficha_number: 5
+                    level: segment
+                    frequency: monthly
+                    period_range:
+                      from: '2025-10'
+                      to: '2025-12'
+                    filters_applied:
+                      segment: [SEGMENTO_1, SEGMENTO_2]
+                      province: []
+                      ruc: []
+                    series:
+                      - key: SEGMENTO_1
+                        label: Segmento 1
+                        level: segment
+                        points:
+                          - period: '2025-10'
+                            value: 8.35
+                            numerator: 1301991700.1
+                            denominator: 15595796856.27
+                            entity_count: 43
+                          - period: '2025-11'
+                            value: 8.34
+                            numerator: 1303175733.01
+                            denominator: 15621323573.01
+                            entity_count: 43
+                          - period: '2025-12'
+                            value: 8.05
+                            numerator: 1256612864.71
+                            denominator: 15617716348.1
+                            entity_count: 43
+                      - key: SEGMENTO_2
+                        label: Segmento 2
+                        level: segment
+                        points:
+                          - period: '2025-10'
+                            value: 7.36
+                            numerator: 192410082.4
+                            denominator: 2613523758.81
+                            entity_count: 64
+                          - period: '2025-11'
+                            value: 7.28
+                            numerator: 191977165.86
+                            denominator: 2636525920.2
+                            entity_count: 64
+                          - period: '2025-12'
+                            value: 6.65
+                            numerator: 175299754.65
+                            denominator: 2635663649.54
+                            entity_count: 63
+                    generated_at: '2026-01-15T10:30:00Z'
+                entity:
+                  summary: Morosidad total - comparación de dos cooperativas
+                  value:
+                    indicator:
+                      id: morosidad_cartera_total
+                      name: Morosidad de cartera total
+                      short_name: Morosidad
+                      category: calidad_de_activos
+                      unit: percent
+                      decimals: 2
+                      polarity: lower_is_better
+                      seps_ficha_number: 5
+                    level: entity
+                    frequency: monthly
+                    period_range:
+                      from: '2025-10'
+                      to: '2025-12'
+                    filters_applied:
+                      segment: []
+                      province: []
+                      ruc: ['1790866084001', '0190021513001']
+                    series:
+                      - key: '1790866084001'
+                        label: COOPERATIVA DE AHORRO Y CREDITO POLICIA NACIONAL LIMITADA
+                        level: entity
+                        segment: SEGMENTO_1
+                        points:
+                          - period: '2025-10'
+                            value: 14.61
+                            numerator: 158793837.76
+                            denominator: 1086753826.5
+                            entity_count: 1
+                          - period: '2025-11'
+                            value: 15.02
+                            numerator: 163515872.65
+                            denominator: 1088521083.54
+                            entity_count: 1
+                          - period: '2025-12'
+                            value: 14.7
+                            numerator: 160528710.14
+                            denominator: 1092034221.36
+                            entity_count: 1
+                      - key: '0190021513001'
+                        label: COOPERATIVA DE AHORRO Y CREDITO EDUCADORES DEL AZUAY LTDA
+                        level: entity
+                        segment: SEGMENTO_2
+                        points:
+                          - period: '2025-10'
+                            value: 1.7
+                            numerator: 597565.95
+                            denominator: 35134251.77
+                            entity_count: 1
+                          - period: '2025-11'
+                            value: 1.59
+                            numerator: 568063.96
+                            denominator: 35740786.94
+                            entity_count: 1
+                          - period: '2025-12'
+                            value: 1.51
+                            numerator: 565609.59
+                            denominator: 37402593.12
+                            entity_count: 1
+                    generated_at: '2026-01-15T10:30:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    SegmentFilter:
+      name: segment
+      in: query
+      description: Uno o varios segmentos (repetir el parámetro, p. ej. `segment=SEGMENTO_1&segment=SEGMENTO_2`).
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items:
+          $ref: '#/components/schemas/SegmentCode'
+        example: [SEGMENTO_1, SEGMENTO_2]
+    ProvinceFilter:
+      name: province
+      in: query
+      description: Uno o varios códigos de provincia DPA-INEC de 2 dígitos (provincia de la matriz).
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items:
+          $ref: '#/components/schemas/ProvinceCode'
+        example: ['17', '01']
+    Page:
+      name: page
+      in: query
+      description: Número de página (base 1).
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+        example: 1
+    PageSize:
+      name: page_size
+      in: query
+      description: Tamaño de página.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+        example: 50
+
+  headers:
+    CacheControl:
+      description: Política de caché; los catálogos cambian sólo con cada carga mensual del ETL.
+      schema:
+        type: string
+        example: public, max-age=3600
+
+  responses:
+    BadRequest:
+      description: Solicitud mal formada (p. ej. parámetro con formato inválido).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidPeriod:
+              summary: Periodo con formato inválido
+              value:
+                type: https://sistema-indicadores.local/problems/invalid-parameter
+                title: Parámetro inválido
+                status: 400
+                detail: "El parámetro 'from' debe tener el formato YYYY-MM."
+                instance: /api/v1/indicators/series?indicator=roa&level=country&from=2025-13
+                errors:
+                  - field: from
+                    message: does not match pattern ^\d{4}-(0[1-9]|1[0-2])$
+    NotFound:
+      description: Recurso solicitado inexistente (p. ej. RUC sin datos).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            rucNotFound:
+              summary: RUC sin información
+              value:
+                type: https://sistema-indicadores.local/problems/not-found
+                title: Recurso no encontrado
+                status: 404
+                detail: No existen datos para el RUC 0999999999001 en el rango solicitado.
+                instance: /api/v1/indicators/series?indicator=roa&level=entity&ruc=0999999999001
+    UnprocessableEntity:
+      description: Parámetros válidos individualmente pero inconsistentes entre sí.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            missingRuc:
+              summary: level=entity sin RUC
+              value:
+                type: https://sistema-indicadores.local/problems/validation-error
+                title: Error de validación
+                status: 422
+                detail: "El parámetro 'ruc' es obligatorio cuando level=entity."
+                instance: /api/v1/indicators/series?indicator=roa&level=entity
+                errors:
+                  - field: ruc
+                    message: required when level=entity
+    InternalError:
+      description: Error inesperado del servidor.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            unexpected:
+              summary: Error interno
+              value:
+                type: about:blank
+                title: Internal Server Error
+                status: 500
+                detail: Ocurrió un error inesperado. Intente nuevamente más tarde.
+
+  schemas:
+    # ---------- Tipos primitivos de dominio ----------
+    Period:
+      type: string
+      description: Mes de la fecha de corte en formato `YYYY-MM`.
+      pattern: ^\d{4}-(0[1-9]|1[0-2])$
+      example: '2025-12'
+    Ruc:
+      type: string
+      description: Registro Único de Contribuyentes de la entidad (13 dígitos, termina en 001).
+      pattern: ^\d{10}001$
+      example: '1790866084001'
+    SegmentCode:
+      type: string
+      description: Segmento de la entidad según la normativa de la Junta de Política y Regulación Financiera.
+      enum:
+        - SEGMENTO_1
+        - SEGMENTO_1_MUTUALISTA
+        - SEGMENTO_2
+        - SEGMENTO_3
+        - SEGMENTO_4
+        - SEGMENTO_5
+      example: SEGMENTO_1
+    ProvinceCode:
+      type: string
+      description: Código de provincia de la División Político-Administrativa (DPA) del INEC.
+      pattern: ^(0[1-9]|1[0-9]|2[0-4]|90)$
+      example: '17'
+    IndicatorId:
+      type: string
+      description: Identificador estable del indicador (clave `id` en `config/indicators_spec.json`).
+      enum:
+        - solvencia_patrimonial
+        - seps_2_proporcion_de_activos_improductiv
+        - seps_3_proporcion_de_activos_productivos
+        - seps_4_utilizaci_n_del_pasivo_con_costo_
+        - morosidad_cartera_total
+        - seps_6_morosidad_de_cartera_comercial_pr
+        - seps_7_morosidad_de_cartera_de_consumo_p
+        - seps_8_morosidad_de_cartera_inmobiliaria
+        - seps_9_morosidad_de_microcredito
+        - seps_10_morosidad_de_cartera_productiva
+        - seps_11_morosidad_de_cartera_comercial_o
+        - seps_12_morosidad_de_cartera_de_consumo_
+        - seps_13_morosidad_de_cartera_de_vivienda
+        - seps_14_morosidad_de_cartera_educativa
+        - seps_15_morosidad_de_cartera_comercial
+        - seps_16_morosidad_de_cartera_de_consumo
+        - seps_17_morosidad_de_cartera_de_vivienda
+        - cobertura_cartera_improductiva
+        - seps_19_cobertura_de_la_cartera_de_cr_di
+        - seps_20_cobertura_de_la_cartera_de_cr_di
+        - seps_21_cobertura_de_la_cartera_inmobili
+        - seps_22_cobertura_de_la_cartera_de_micro
+        - seps_23_cobertura_de_la_cartera_producti
+        - seps_24_cobertura_de_la_cartera_comercia
+        - seps_25_cobertura_de_la_cartera_de_consu
+        - seps_26_cobertura_de_la_cartera_de_vivie
+        - seps_27_cobertura_de_la_cartera_de_cr_di
+        - seps_28_cobertura_de_la_cartera_comercia
+        - seps_29_cobertura_de_la_cartera_de_consu
+        - seps_30_cobertura_de_la_cartera_de_vivie
+        - eficiencia_operativa
+        - seps_32_grado_de_absorci_n_del_margen_fi
+        - seps_33_eficiencia_administrativa_de_per
+        - roe
+        - roa
+        - intermediacion_financiera
+        - seps_37_margen_de_intermediaci_n_estimad
+        - seps_38_margen_de_intermediaci_n_estimad
+        - seps_39_rendimiento_de_la_cartera_de_cr_
+        - seps_40_rendimiento_de_la_cartera_de_cr_
+        - seps_41_rendimiento_de_la_cartera_de_cr_
+        - seps_42_rendimiento_de_la_cartera_de_cr_
+        - seps_43_rendimiento_de_la_cartera_de_mic
+        - seps_44_rendimiento_de_la_cartera_de_cr_
+        - seps_45_rendimiento_de_la_cartera_de_cr_
+        - seps_46_rendimiento_de_la_cartera_de_cr_
+        - seps_47_rendimiento_de_la_cartera_de_viv
+        - seps_48_rendimiento_de_la_cartera_de_cr_
+        - seps_49_rendimiento_de_la_cartera_de_cr_
+        - seps_50_rendimiento_de_la_cartera_de_cr_
+        - seps_51_rendimiento_de_la_cartera_por_ve
+        - liquidez_inmediata
+        - seps_53_cartera_improductiva_descubierta
+        - seps_54_cartera_improductiva_sobre_el_pa
+        - seps_55_fk_patrimonio_resultados_ingreso
+        - seps_56_fi_1_activos_improductivos_activ
+        - seps_57_indice_de_capitalizaci_n_neto_fk
+        - seps_58_patrimonio_t_cnico_primario
+        - seps_59_patrimonio_t_cnico_secundario
+        - seps_60_patrimonio_t_cnico_constituido
+        - seps_61_activos_y_contingentes_ponderado
+        - seps_62_solvencia
+        - seps_63_porcentaje_t_cnico_requerido
+      example: morosidad_cartera_total
+    AggregationLevel:
+      type: string
+      description: Nivel de agregación de la serie.
+      enum: [country, segment, entity]
+      example: segment
+    Frequency:
+      type: string
+      description: Periodicidad de reporte de la información.
+      enum: [monthly, quarterly]
+      example: monthly
+
+    # ---------- Metadata ----------
+    Segment:
+      type: object
+      description: Segmento disponible para filtrar.
+      required: [code, label, reporting_frequency, entity_count]
+      properties:
+        code:
+          $ref: '#/components/schemas/SegmentCode'
+        label:
+          type: string
+          description: Etiqueta legible.
+          example: Segmento 1
+        reporting_frequency:
+          $ref: '#/components/schemas/Frequency'
+        entity_count:
+          type: integer
+          minimum: 0
+          description: Entidades con datos en el último periodo.
+          example: 43
+    Province:
+      type: object
+      description: Provincia disponible para filtrar.
+      required: [code, name]
+      properties:
+        code:
+          $ref: '#/components/schemas/ProvinceCode'
+        name:
+          type: string
+          description: Nombre oficial de la provincia en mayúsculas.
+          example: PICHINCHA
+        entity_count:
+          type: integer
+          minimum: 0
+          description: Entidades con matriz en la provincia.
+          example: 99
+    PeriodCatalog:
+      type: object
+      description: Rango de periodos con datos disponibles.
+      required: [frequency, min, max, latest, available]
+      properties:
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        min:
+          $ref: '#/components/schemas/Period'
+        max:
+          $ref: '#/components/schemas/Period'
+        latest:
+          $ref: '#/components/schemas/Period'
+        available:
+          type: array
+          description: Lista ordenada ascendente de periodos con datos.
+          items:
+            $ref: '#/components/schemas/Period'
+          example: ['2025-10', '2025-11', '2025-12']
+    IndicatorMeta:
+      type: object
+      description: Metadatos de presentación de un indicador (derivados de `config/indicators_spec.json`).
+      required: [id, name, short_name, category, unit, decimals, polarity]
+      properties:
+        id:
+          $ref: '#/components/schemas/IndicatorId'
+        name:
+          type: string
+          example: Morosidad de cartera total
+        short_name:
+          type: string
+          example: Morosidad
+        category:
+          type: string
+          description: Dimensión de análisis (tipo CAMEL).
+          enum: [capital, calidad_de_activos, manejo_administrativo, rentabilidad, liquidez]
+          example: calidad_de_activos
+        unit:
+          type: string
+          enum: [percent, ratio, usd]
+          example: percent
+        decimals:
+          type: integer
+          minimum: 0
+          maximum: 6
+          example: 2
+        polarity:
+          type: string
+          description: Sentido deseable del indicador para semaforización.
+          enum: [higher_is_better, lower_is_better, neutral]
+          example: lower_is_better
+        seps_ficha_number:
+          type: integer
+          description: Número de la ficha en "Fichas Metodológicas de Indicadores Financieros V3.0".
+          example: 5
+        latest_value:
+          type: number
+          format: float
+          nullable: true
+          description: Último valor agregado disponible a nivel nacional.
+          example: 7.84
+        methodological_note:
+          type: string
+          nullable: true
+          description: Nota metodológica sobre devengo, componentes o estacionalidad.
+          example: 'Excedente antes de impuestos de Ene-Nov vs. Excedente neto en Dic'
+    FiltersMetadata:
+      type: object
+      description: Catálogos para los filtros globales de la interfaz.
+      required: [segments, provinces, periods, indicators, data_as_of]
+      properties:
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Segment'
+        provinces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Province'
+        periods:
+          $ref: '#/components/schemas/PeriodCatalog'
+        indicators:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndicatorMeta'
+        data_as_of:
+          type: string
+          format: date
+          description: Última fecha de corte cargada.
+          example: '2025-12-31'
+
+    # ---------- Entities ----------
+    EntitySummary:
+      type: object
+      description: Ficha resumida de una entidad financiera.
+      required: [ruc, razon_social, entity_type, segment, first_period, last_period, is_active]
+      properties:
+        ruc:
+          $ref: '#/components/schemas/Ruc'
+        razon_social:
+          type: string
+          example: COOPERATIVA DE AHORRO Y CREDITO POLICIA NACIONAL LIMITADA
+        entity_type:
+          type: string
+          enum: [COOPERATIVA, MUTUALISTA, CAJA_CENTRAL]
+          example: COOPERATIVA
+        segment:
+          $ref: '#/components/schemas/SegmentCode'
+        province:
+          oneOf:
+            - $ref: '#/components/schemas/Province'
+            - type: 'null'
+          description: Provincia de la matriz (null si no está disponible).
+        total_assets_usd:
+          type: [number, 'null']
+          description: Activo total (cuenta 1) en el último periodo reportado, en USD.
+          example: 1482900000.0
+        first_period:
+          $ref: '#/components/schemas/Period'
+        last_period:
+          $ref: '#/components/schemas/Period'
+        is_active:
+          type: boolean
+          description: Reportó en el último periodo disponible.
+          example: true
+    Pagination:
+      type: object
+      description: Metadatos de paginación.
+      required: [page, page_size, total_items, total_pages]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        page_size:
+          type: integer
+          minimum: 1
+          example: 50
+        total_items:
+          type: integer
+          minimum: 0
+          example: 43
+        total_pages:
+          type: integer
+          minimum: 0
+          example: 1
+    EntityListResponse:
+      type: object
+      description: Página de entidades.
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntitySummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # ---------- Indicators ----------
+    SeriesPoint:
+      type: object
+      description: Observación de un indicador en un periodo.
+      required: [period, value]
+      properties:
+        period:
+          $ref: '#/components/schemas/Period'
+        value:
+          type: [number, 'null']
+          description: Valor del indicador en la unidad declarada. `null` si el denominador es <= 0 o no hay datos.
+          example: 7.84
+        numerator:
+          type: [number, 'null']
+          description: Numerador agregado en USD (trazabilidad).
+          example: 1562063234.78
+        denominator:
+          type: [number, 'null']
+          description: Denominador agregado en USD (trazabilidad).
+          example: 19914112605.29
+        entity_count:
+          type: integer
+          minimum: 0
+          description: Entidades que aportan al punto.
+          example: 203
+    Series:
+      type: object
+      description: Serie de tiempo para una clave del nivel solicitado (país, segmento o RUC).
+      required: [key, label, level, points]
+      properties:
+        key:
+          type: string
+          description: '`EC` para país, código de segmento o RUC.'
+          example: SEGMENTO_1
+        label:
+          type: string
+          example: Segmento 1
+        level:
+          $ref: '#/components/schemas/AggregationLevel'
+        segment:
+          $ref: '#/components/schemas/SegmentCode'
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesPoint'
+    IndicatorSeriesResponse:
+      type: object
+      description: Respuesta del endpoint de series.
+      required: [indicator, level, frequency, period_range, filters_applied, series, generated_at]
+      properties:
+        indicator:
+          $ref: '#/components/schemas/IndicatorMeta'
+        level:
+          $ref: '#/components/schemas/AggregationLevel'
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        period_range:
+          type: object
+          description: Rango efectivo devuelto.
+          required: [from, to]
+          properties:
+            from:
+              $ref: '#/components/schemas/Period'
+            to:
+              $ref: '#/components/schemas/Period'
+        filters_applied:
+          type: object
+          description: Filtros efectivamente aplicados (eco normalizado de la consulta).
+          required: [segment, province, ruc]
+          properties:
+            segment:
+              type: array
+              items:
+                $ref: '#/components/schemas/SegmentCode'
+              example: [SEGMENTO_1]
+            province:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProvinceCode'
+              example: []
+            ruc:
+              type: array
+              items:
+                $ref: '#/components/schemas/Ruc'
+              example: []
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/Series'
+        generated_at:
+          type: string
+          format: date-time
+          description: Marca de tiempo de generación de la respuesta.
+          example: '2026-01-15T10:30:00Z'
+
+    # ---------- Errores ----------
+    Problem:
+      type: object
+      description: Detalle de error según RFC 9457 (Problem Details for HTTP APIs).
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          example: https://sistema-indicadores.local/problems/validation-error
+        title:
+          type: string
+          example: Error de validación
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          example: 422
+        detail:
+          type: string
+          example: "El parámetro 'ruc' es obligatorio cuando level=entity."
+        instance:
+          type: string
+          format: uri-reference
+          example: /api/v1/indicators/series?indicator=roa&level=entity
+        errors:
+          type: array
+          description: Errores por campo.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+                example: ruc
+              message:
+                type: string
+                example: required when level=entity

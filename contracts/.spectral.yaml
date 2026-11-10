@@ -1,0 +1,89 @@
+# Spectral ruleset para el contrato OpenAPI del Sistema de Indicadores.
+# Uso: npm run contract:lint
+extends:
+  - spectral:oas
+
+rules:
+  # --- Endurecer reglas del ruleset base ---
+  operation-operationId: error
+  operation-description: error
+  operation-tags: error
+  info-contact: error
+  oas3-valid-media-example: error
+  oas3-valid-schema-example: error
+  oas3-unused-component: warn
+
+  # --- Reglas propias del proyecto ---
+  paths-api-v1-prefix:
+    description: Todas las rutas deben estar versionadas bajo /api/v1/.
+    message: "La ruta '{{property}}' debe comenzar con /api/v1/."
+    severity: error
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: ^/api/v1/
+
+  paths-kebab-case:
+    description: Los segmentos de ruta deben estar en kebab-case (minúsculas).
+    message: "La ruta '{{property}}' debe usar kebab-case."
+    severity: warn
+    given: $.paths
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: ^(/[a-z0-9-]+|/\{[a-z_]+\})+$
+
+  operation-id-camel-case:
+    description: operationId en camelCase (se usa para generar clientes TS y handlers FastAPI).
+    severity: error
+    given: $.paths[*][get,put,post,delete,patch]
+    then:
+      field: operationId
+      function: casing
+      functionOptions:
+        type: camel
+
+  success-response-has-examples:
+    description: Toda respuesta 2xx JSON debe incluir 'examples' para que Prism devuelva datos realistas.
+    severity: error
+    given: $.paths[*][*].responses[?(@property.match(/^2\d\d$/))].content['application/json']
+    then:
+      field: examples
+      function: truthy
+
+  error-responses-use-problem-json:
+    description: Las respuestas 4xx/5xx deben usar application/problem+json (RFC 9457).
+    severity: error
+    given: $.components.responses[*].content
+    then:
+      field: application/problem+json
+      function: truthy
+
+  query-params-snake-case:
+    description: Los parámetros de consulta deben estar en snake_case.
+    severity: warn
+    given: $..parameters[?(@.in == 'query')]
+    then:
+      field: name
+      function: casing
+      functionOptions:
+        type: snake
+
+  schema-properties-have-description-or-ref:
+    description: Los esquemas de components deben tener descripción.
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      field: description
+      function: truthy
+
+  scalar-properties-have-example:
+    description: Las propiedades escalares deben declarar 'example' (alimenta el mock server).
+    severity: warn
+    given: $.components.schemas[*].properties[?(@.type && @.type != 'object' && @.type != 'array')]
+    then:
+      field: example
+      function: defined
