@@ -149,9 +149,17 @@ export const LoginModal: React.FC = () => {
           </div>
         </form>
 
-        {/* Nota de Seguridad */}
-        <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 text-center">
-          Sesión protegida por HttpOnly Cookies criptográficas y cifrado institucional.
+        {/* Nota de Seguridad y Soporte Institucional */}
+        <div className="mt-4 pt-3 border-t border-slate-100 text-center space-y-2">
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            ¿Olvidaste tu contraseña?{" "}
+            <span className="text-slate-700 font-medium dark:text-slate-300">
+              Contacta a la administración del proyecto (<code>admin.espoch@espoch.edu.ec</code>) para emitir una clave temporal de desbloqueo.
+            </span>
+          </p>
+          <div className="text-[10px] text-slate-400">
+            Sesión protegida por HttpOnly Cookies criptográficas y cifrado institucional ESPOCH.
+          </div>
         </div>
       </div>
     </div>

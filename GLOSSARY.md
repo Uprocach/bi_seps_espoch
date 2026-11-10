@@ -35,3 +35,8 @@ Metodología de supervisión y calificación de riesgo financiero:
   - `investigador`: Consulta analítica completa y exportación de microdatos en formato CSV.
   - `auditor`: Lo anterior más descarga de reportes ejecutivos en Excel y visualización de logs de auditoría.
   - `administrador`: Control total del sistema y gestión del padrón de usuarios acreditados.
+
+## 5. Gestión de Identidades y Credenciales
+- **Contraseña Temporal Inicial**: Credencial por defecto asignada automáticamente al crear o importar usuarios, equivalente al identificador de usuario institucional (`nombre.apellido`).
+- **Cambio Obligatorio de Clave**: Regla de seguridad forzada mediante la bandera `must_change_password`, que bloquea la navegación interactiva hasta que el usuario establece una clave personal secreta de al menos 6 caracteres.
+- **Restablecimiento Asistido de Contraseña**: Protocolo administrativo en el cual, ante el olvido de credenciales personales, el Administrador reinicia la cuenta a su contraseña temporal original con cambio obligatorio, registrando el evento en `audit_logs` (ADR-0002).
