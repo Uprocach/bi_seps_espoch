@@ -339,3 +339,16 @@ class AuditLogsListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+# -------------------------------------------------------------
+# Modelos Pipeline y Estado de Data Marts (Fase 2)
+# -------------------------------------------------------------
+class PipelineStatusResponse(BaseModel):
+    status: str
+    active_mart_dir: str
+    data_as_of: str
+    latest_period: str
+    periods_count: int
+    entities_count: int
+    staging_ready: bool
+    last_switch_timestamp: str | None = None

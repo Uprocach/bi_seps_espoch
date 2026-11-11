@@ -40,3 +40,9 @@ Metodología de supervisión y calificación de riesgo financiero:
 - **Contraseña Temporal Inicial**: Credencial por defecto asignada automáticamente al crear o importar usuarios, equivalente al identificador de usuario institucional (`nombre.apellido`).
 - **Cambio Obligatorio de Clave**: Regla de seguridad forzada mediante la bandera `must_change_password`, que bloquea la navegación interactiva hasta que el usuario establece una clave personal secreta de al menos 6 caracteres.
 - **Restablecimiento Asistido de Contraseña**: Protocolo administrativo en el cual, ante el olvido de credenciales personales, el Administrador reinicia la cuenta a su contraseña temporal original con cambio obligatorio, registrando el evento en `audit_logs` (ADR-0002).
+
+## 6. Pipeline de Datos y Despliegue Atómico (Fase 2)
+- **Data Mart Staging (`mart_staging`)**: Directorio de preparación aislado donde el motor ETL consolida los nuevos cubos multidimensionales Parquet antes de su validación y paso a producción.
+- **Gatekeeper Validador**: Suite automatizada de verificación analítica y referencial (`test_marts.py`) que audita el 100% de los datos nuevos en staging antes de autorizar el cambio atómico.
+- **Reemplazo Atómico Zero-Downtime (*Zero-Downtime Atomic Switch*)**: Protocolo por el cual la API conmuta de inmediato hacia el nuevo Data Mart sin reiniciar el servidor ni interrumpir lecturas concurrentes activas de DuckDB, invalidando automáticamente los encabezados de caché HTTP ETag.
+- **Puntero Activo de Datos (`CURRENT_MART`)**: Archivo de metadatos o enlace simbólico que determina en caliente cuál partición física de datos está activa para las consultas analíticas del sistema.

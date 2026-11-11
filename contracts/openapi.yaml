@@ -37,6 +37,8 @@ tags:
     description: Series de tiempo de indicadores financieros a nivel país, segmento o entidad.
   - name: Audit
     description: Bitácora de auditoría forense y control de acceso (Compliance y RegTech).
+  - name: Admin
+    description: Gestión administrativa, gobernanza del sistema y mantenimiento del pipeline de datos.
 
 paths:
   /api/v1/metadata/filters:
@@ -529,6 +531,39 @@ paths:
                     total: 1
                     limit: 50
                     offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/admin/pipeline-status:
+    get:
+      tags: [Admin]
+      operationId: getPipelineStatus
+      summary: Consultar estado operativo del pipeline y Data Marts activos
+      description: |
+        Retorna el estado operativo del motor analítico DuckDB, versión del Data Mart activo, fecha de corte contable, periodos cubiertos y disponibilidad de datos en staging. Exclusivo para roles `auditor` y `administrador`.
+      responses:
+        '200':
+          description: Estado operativo y de integridad del pipeline analítico.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineStatusResponse'
+              examples:
+                default:
+                  summary: Estado actual del pipeline
+                  value:
+                    status: active
+                    active_mart_dir: data/processed/mart
+                    data_as_of: '2025-12-31'
+                    latest_period: '2025-12'
+                    periods_count: 96
+                    entities_count: 229
+                    staging_ready: false
+                    last_switch_timestamp: '2026-11-11T10:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1175,3 +1210,42 @@ components:
         offset:
           type: integer
           example: 0
+
+    PipelineStatusResponse:
+      type: object
+      description: Esquema de respuesta para el estado operativo del pipeline y los cubos Parquet del Data Mart.
+      required: [status, active_mart_dir, data_as_of, latest_period, periods_count, entities_count, staging_ready]
+      properties:
+        status:
+          type: string
+          description: Estado general del Data Mart (active, updating, error).
+          example: active
+        active_mart_dir:
+          type: string
+          description: Ruta del directorio activo de datos Parquet.
+          example: data/processed/mart
+        data_as_of:
+          type: string
+          description: Fecha de corte del último periodo procesado (YYYY-MM-DD).
+          example: '2025-12-31'
+        latest_period:
+          type: string
+          description: Último periodo contable mensual disponible en el cubo (YYYY-MM).
+          example: '2025-12'
+        periods_count:
+          type: integer
+          description: Total de periodos mensuales procesados en el histórico.
+          example: 96
+        entities_count:
+          type: integer
+          description: Total de cooperativas supervisadas indexadas.
+          example: 229
+        staging_ready:
+          type: boolean
+          description: Indica si existe un conjunto de datos en staging validado y listo para switch.
+          example: false
+        last_switch_timestamp:
+          type: string
+          nullable: true
+          description: Marca temporal ISO 8601 del último reemplazo atómico realizado.
+          example: '2026-11-11T10:00:00Z'
