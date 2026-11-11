@@ -48,6 +48,13 @@ const AppContent: React.FC = () => {
 
   const userRole: UserRole = isAuthenticated ? "accredited" : "public"
 
+  // Garantizar que usuarios sin acreditar naveguen exclusivamente en vistas públicas sin advertencias
+  useEffect(() => {
+    if (!isAuthenticated && (activeView === "benchmarking" || activeView === "admin_users" || activeView === "audit_logs")) {
+      setActiveView("dashboard")
+    }
+  }, [isAuthenticated, activeView])
+
   // Estado de Metadatos
   const [metadata, setMetadata] = useState<FiltersMetadata | null>(null)
   const [loadingMeta, setLoadingMeta] = useState(true)
@@ -335,11 +342,11 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {activeView === "benchmarking" && (
+          {isAuthenticated && activeView === "benchmarking" && (
             <ProtectedRoute
               requiredRoles={["investigador", "auditor", "administrador"]}
-              fallbackTitle="Supervisión & Benchmarking Multi-Entidad CAMEL"
-              fallbackDescription="El comparador analítico de hasta 5 cooperativas simultáneas con semáforo normativo SEPS v3.0 y exportación en streaming requiere credenciales institucionales de la Capa Pro."
+              fallbackTitle="Diagnóstico CAMEL & Supervisión Institucional"
+              fallbackDescription="El comparador analítico de cooperativas supervisadas con semáforo regulatorio SEPS v3.0 está reservado para perfiles institucionales acreditados."
             >
               <BenchmarkingProView
                 metadata={metadata}

@@ -290,42 +290,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
 
-            {/* 1.3 Diagnóstico CAMEL & Benchmarking */}
-            <button
-              type="button"
-              onClick={() => {
-                onSelectView("benchmarking")
-                if (onCloseMobile) onCloseMobile()
-              }}
-              title={isCollapsed ? "Diagnóstico CAMEL & Benchmarking" : undefined}
-              className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
-                isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
-              } ${
-                activeView === "benchmarking"
-                  ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    activeView === "benchmarking"
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                  }`}
-                >
-                  <Scale className="h-4 w-4" />
-                </div>
-                {!isCollapsed && (
-                  <div className="min-w-0">
-                    <span className="truncate font-semibold">Diagnóstico CAMEL</span>
-                    <p className="text-[10px] text-slate-400 font-normal truncate">
-                      Benchmarking & semáforo SEPS
-                    </p>
+            {/* 1.3 Diagnóstico CAMEL & Benchmarking (Exclusivo usuarios acreditados) */}
+            {isAccredited && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectView("benchmarking")
+                  if (onCloseMobile) onCloseMobile()
+                }}
+                title={isCollapsed ? "Diagnóstico CAMEL & Benchmarking" : undefined}
+                className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                  isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+                } ${
+                  activeView === "benchmarking"
+                    ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      activeView === "benchmarking"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                    }`}
+                  >
+                    <Scale className="h-4 w-4" />
                   </div>
-                )}
-              </div>
-            </button>
+                  {!isCollapsed && (
+                    <div className="min-w-0">
+                      <span className="truncate font-semibold">Diagnóstico CAMEL</span>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">
+                        Benchmarking & semáforo SEPS
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </button>
+            )}
 
             {/* 1.4 Directorio de Cooperativas */}
             <button

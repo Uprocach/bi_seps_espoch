@@ -100,7 +100,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             </Badge>
             {isAccredited && (
               <Badge variant="gold" className="text-xs px-2.5 py-1">
-                Catálogo Pro ({totalAccredited} fichas)
+                Fichas Acreditadas ({totalAccredited})
               </Badge>
             )}
           </div>

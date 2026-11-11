@@ -52,21 +52,23 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
           </div>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
             Consorcio de entidades clasificadas en Segmentos 1 y 2 por la SEPS. Selecciona cooperativas
-            para analizar sus series temporales o auditarlas en el módulo de Benchmarking Pro.
+            para analizar sus series temporales en el panel analítico{canExport ? " o auditarlas en el módulo de Diagnóstico CAMEL." : "."}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onNavigateToBenchmarking}
-            className="text-xs h-9 font-semibold gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 shadow-sm"
-          >
-            <Scale className="h-3.5 w-3.5 text-slate-900" />
-            <span>Ir a Benchmarking Pro</span>
-          </Button>
-        </div>
+        {canExport && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onNavigateToBenchmarking}
+              className="text-xs h-9 font-semibold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm"
+            >
+              <Scale className="h-3.5 w-3.5" />
+              <span>Diagnóstico CAMEL</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tabla de Entidades con buscador y paginación */}

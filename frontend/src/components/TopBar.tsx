@@ -95,12 +95,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                   Dimensión
                 </Badge>
               )}
-              {activeView === "benchmarking" && (
+              {isAccredited && activeView === "benchmarking" && (
                 <Badge
-                  variant={isAccredited ? "gold" : "slate"}
+                  variant="gold"
                   className="hidden sm:inline-flex text-[10px] uppercase font-bold"
                 >
-                  {isAccredited ? "Acreditado" : "Solo Consulta"}
+                  Acreditado
                 </Badge>
               )}
             </div>

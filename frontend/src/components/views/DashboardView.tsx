@@ -205,15 +205,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onNavigateToBenchmarking}
-            className="text-xs h-7 text-emerald-800 border-emerald-300 hover:bg-emerald-100/50 gap-1"
-          >
-            <span>Diagnóstico CAMEL</span>
-            <ArrowRight className="h-3 w-3" />
-          </Button>
+          {isAccredited && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNavigateToBenchmarking}
+              className="text-xs h-7 text-emerald-800 border-emerald-300 hover:bg-emerald-100/50 gap-1"
+            >
+              <span>Diagnóstico CAMEL</span>
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          )}
         </section>
       )}
 

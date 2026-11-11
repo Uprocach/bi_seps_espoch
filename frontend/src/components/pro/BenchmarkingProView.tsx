@@ -587,7 +587,7 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="mint" className="text-[10px] uppercase font-bold tracking-wider">
-              Supervisión Pro • ESPOCH - DI - 060
+              Diagnóstico CAMEL • ESPOCH - DI - 060
             </Badge>
             <span className="text-xs text-slate-500 font-mono">
               {user?.name || "Investigador Acreditado"}
