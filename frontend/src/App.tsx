@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Sidebar, type ActiveView, type UserRole } from "@/components/Sidebar"
 import { TopBar } from "@/components/TopBar"
@@ -95,35 +95,49 @@ const AppContent: React.FC = () => {
     checkAuth()
   }, [checkAuth])
 
-  useEffect(() => {
-    async function loadMeta() {
-      try {
-        setLoadingMeta(true)
-        const meta = await fetchMetadataFilters()
-        setMetadata(meta)
+  const loadMeta = useCallback(async (isRefresh = false) => {
+    try {
+      setLoadingMeta(true)
+      const meta = await fetchMetadataFilters()
+      setMetadata(meta)
 
-        if (meta.periods.available.length > 0) {
-          const avail = meta.periods.available
-          setToPeriod(meta.periods.latest)
-          const startIdx = Math.max(0, avail.length - 24)
-          setFromPeriod(avail[startIdx])
-        }
-
-        const kpiMap: Record<string, { value: number | null }> = {}
-        meta.indicators.forEach((ind: any) => {
-          if (ind.latest_value !== undefined && ind.latest_value !== null) {
-            kpiMap[ind.id] = { value: ind.latest_value }
-          }
-        })
-        setKpiValues(kpiMap)
-      } catch (err: unknown) {
-        console.error("Error cargando metadatos:", err)
-      } finally {
-        setLoadingMeta(false)
+      if (meta.periods.available.length > 0) {
+        const avail = meta.periods.available
+        setToPeriod(meta.periods.latest)
+        const startIdx = Math.max(0, avail.length - 24)
+        setFromPeriod(avail[startIdx])
       }
+
+      const kpiMap: Record<string, { value: number | null }> = {}
+      meta.indicators.forEach((ind: any) => {
+        if (ind.latest_value !== undefined && ind.latest_value !== null) {
+          kpiMap[ind.id] = { value: ind.latest_value }
+        }
+      })
+      setKpiValues(kpiMap)
+
+      if (isRefresh) {
+        queryClient.invalidateQueries()
+      }
+    } catch (err: unknown) {
+      console.error("Error cargando metadatos:", err)
+    } finally {
+      setLoadingMeta(false)
     }
-    loadMeta()
   }, [])
+
+  useEffect(() => {
+    loadMeta()
+  }, [loadMeta])
+
+  // Escuchar evento de actualización del pipeline y sincronización web en tiempo real
+  useEffect(() => {
+    const handlePipelineUpdate = () => {
+      loadMeta(true)
+    }
+    window.addEventListener("pipeline-data-updated", handlePipelineUpdate)
+    return () => window.removeEventListener("pipeline-data-updated", handlePipelineUpdate)
+  }, [loadMeta])
 
   // 2. Cargar Serie de Tiempo para el indicador seleccionado
   useEffect(() => {

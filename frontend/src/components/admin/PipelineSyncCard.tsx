@@ -79,6 +79,13 @@ export const PipelineSyncCard: React.FC = () => {
             (current.status === "success" || current.status === "idle" || current.status === "failed")
           ) {
             fetchPipelineStatus()
+            if (current.status === "success") {
+              window.dispatchEvent(new CustomEvent("pipeline-data-updated", { detail: current }))
+              setActionFeedback({
+                type: "success",
+                text: `¡Sincronización exitosa! Nuevo periodo contable ${current.detected_period || "actualizado"} disponible en todos los paneles.`
+              })
+            }
             if (pollingRef.current) {
               clearInterval(pollingRef.current)
               pollingRef.current = null

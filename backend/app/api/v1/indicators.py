@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Depends, Response, Request
 from backend.app.models.schemas import IndicatorSeriesResponse, AggregationLevel
 from backend.app.services.repository import AnalyticsRepository
+from backend.app.services.mart_provider import mart_provider
 from backend.app.core.security import get_current_user_optional, normalize_role
 from backend.app.core.errors import APIProblemException
 
@@ -17,7 +18,7 @@ ALLOWED_ROLES = {"investigador", "auditor", "administrador", "researcher", "admi
     description="Alias compatible hacia /api/v1/metadata/filters para consulta pública de metadatos.",
     include_in_schema=False
 )
-def get_indicators_metadata(response: Response):
+def get_indicators_metadata(response: Response = Response()):
     response.headers["Cache-Control"] = "public, max-age=3600"
     return repo.get_metadata_filters()
 
@@ -50,9 +51,11 @@ def get_benchmark_matrix(
 
     result = repo.get_benchmark_matrix(rucs=ruc, period=period)
 
-    # Capa de Caché HTTP ETag y Cache-Control: max-age=86400
+    # Capa de Caché HTTP ETag y Cache-Control con revalidación dinámica
     effective_period = result.get("period", period or "")
-    etag_seed = f"benchmark:{sorted(ruc)}:{effective_period}:{len(result.get('matrix', []))}"
+    mart_stat = mart_provider.get_status()
+    switch_ts = mart_stat.get("last_switch_timestamp", "")
+    etag_seed = f"benchmark:{sorted(ruc)}:{effective_period}:{len(result.get('matrix', []))}:{switch_ts}"
     etag_val = f'W/"{hashlib.sha256(etag_seed.encode()).hexdigest()[:16]}"'
 
     if request and request.headers.get("if-none-match") == etag_val:
@@ -93,10 +96,12 @@ def get_indicator_series(
         to_period=to
     )
 
-    # Capa de Caché HTTP ETag y Cache-Control: max-age=86400 (Frente 3)
+    # Capa de Caché HTTP ETag y Cache-Control con revalidación dinámica
     p_from = result.get("period_range", {}).get("from", from_ or "")
     p_to = result.get("period_range", {}).get("to", to or "")
-    etag_seed = f"series:{indicator}:{level}:{p_from}:{p_to}:{sorted(segment or [])}:{sorted(province or [])}:{sorted(ruc or [])}"
+    mart_stat = mart_provider.get_status()
+    switch_ts = mart_stat.get("last_switch_timestamp", "")
+    etag_seed = f"series:{indicator}:{level}:{p_from}:{p_to}:{sorted(segment or [])}:{sorted(province or [])}:{sorted(ruc or [])}:{switch_ts}"
     etag_val = f'W/"{hashlib.sha256(etag_seed.encode()).hexdigest()[:16]}"'
 
     if request and request.headers.get("if-none-match") == etag_val:

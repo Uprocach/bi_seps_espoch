@@ -54,8 +54,9 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export async function fetchMetadataFilters(): Promise<FiltersMetadata> {
-  const res = await fetch(`${API_BASE}/metadata/filters`, {
-    credentials: "include"
+  const res = await fetch(`${API_BASE}/metadata/filters?_t=${Date.now()}`, {
+    credentials: "include",
+    cache: "no-store"
   })
   if (!res.ok) {
     throw new Error(`Error ${res.status}: Fallo al cargar metadatos de filtros`)
