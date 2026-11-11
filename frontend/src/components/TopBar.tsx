@@ -1,5 +1,5 @@
 import React from "react"
-import { Menu, ShieldCheck, Users, Calendar, Download } from "lucide-react"
+import { Menu, ShieldCheck, Users, Calendar, Download, LogIn, LogOut } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { ActiveView, UserRole } from "@/components/Sidebar"
@@ -24,7 +24,7 @@ const VIEW_TITLES: Record<ActiveView, { title: string; subtitle: string }> = {
     subtitle: "Proyecto ESPOCH - DI - 060 • Monitoreo macro y series de tiempo CAMEL"
   },
   benchmarking: {
-    title: "Benchmarking Pro & Diagnóstico CAMEL",
+    title: "Diagnóstico CAMEL & Benchmarking Institucional",
     subtitle: "Proyecto ESPOCH - DI - 060 • Comparador multi-cooperativa y semáforo normativo SEPS"
   },
   catalog: {
@@ -119,31 +119,34 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span className="font-semibold text-slate-900">{latestPeriod}</span>
           </div>
 
-          {/* Toggle de Credencial */}
-          <button
-            type="button"
-            onClick={onToggleRole}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-              isAccredited
-                ? "bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100/70"
-                : "bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100/70"
-            }`}
-            title="Haz clic para alternar entre Modo Público y Modo Acreditado ESPOCH - DI - 060"
-          >
-            {isAccredited ? (
-              <>
-                <ShieldCheck className="h-4 w-4 text-amber-600" />
-                <span className="hidden sm:inline">Acreditado DI-060</span>
-                <span className="sm:hidden">Pro</span>
-              </>
-            ) : (
-              <>
-                <Users className="h-4 w-4 text-emerald-600" />
-                <span className="hidden sm:inline">Público</span>
-                <span className="sm:hidden">Libre</span>
-              </>
-            )}
-          </button>
+          {/* Estado de Acceso Institucional */}
+          {isAccredited ? (
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200/80 text-xs font-semibold text-emerald-900">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span>Acreditado</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleRole}
+                className="h-8 px-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                title="Cerrar sesión institucional"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleRole}
+              className="flex items-center gap-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200"
+            >
+              <LogIn className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Acceso Institucional</span>
+            </Button>
+          )}
 
           {/* Botón de Exportar si aplica */}
           {onExportReport && (

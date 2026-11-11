@@ -25,6 +25,8 @@ data/processed/
 *.parquet
 *.duckdb
 *.db
+*.db-shm
+*.db-wal
 *.zip
 *.tar.gz
 data/users.db

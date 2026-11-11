@@ -142,7 +142,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </Badge>
             {isAccredited && dimAccreditedIndicators.length > 0 && (
               <Badge variant="gold" className="text-xs px-2.5 py-1">
-                +{dimAccreditedIndicators.length} Fichas Pro
+                +{dimAccreditedIndicators.length} Fichas Adicionales
               </Badge>
             )}
           </div>
@@ -211,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={onNavigateToBenchmarking}
             className="text-xs h-7 text-emerald-800 border-emerald-300 hover:bg-emerald-100/50 gap-1"
           >
-            <span>Llevar a Benchmarking Pro</span>
+            <span>Diagnóstico CAMEL</span>
             <ArrowRight className="h-3 w-3" />
           </Button>
         </section>
@@ -338,16 +338,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Fichas Avanzadas: SOLO VISIBLES PARA EL USUARIO ACREDITADO (SIN VESTIGIOS EN PÚBLICO) */}
+          {/* Fichas Avanzadas: Visibles para el usuario acreditado */}
           {isAccredited && dimAccreditedIndicators.length > 0 && (
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  Fichas Especializadas Pro ({dimAccreditedIndicators.length})
+                  Fichas Especializadas ({dimAccreditedIndicators.length})
                 </span>
                 <Badge variant="gold" className="text-[10px]">
-                  Modo Acreditado Activo
+                  Acreditado
                 </Badge>
               </div>
 

@@ -410,7 +410,7 @@ const AppContent: React.FC = () => {
               <span>•</span>
               <span>Sistema de Indicadores SFPS</span>
               <span>•</span>
-              <span>Capa Pro (DuckDB + Supabase + RBAC)</span>
+              <span>Motor Analítico DuckDB & Gobernanza RBAC</span>
             </div>
             <div className="font-mono text-[11px] text-slate-400">
               Dirección de Investigación ESPOCH • Fichas Metodológicas SEPS V3.0

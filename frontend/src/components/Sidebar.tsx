@@ -169,322 +169,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Navegación Principal */}
-        <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto">
-          {/* 1. Visión Global 360° */}
-          <button
-            type="button"
-            onClick={handleGlobalClick}
-            title={isCollapsed ? "Visión Global 360° (Dashboard General)" : undefined}
-            className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
-              isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
-            } ${
-              activeView === "dashboard" && selectedDimension === "all"
-                ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`p-1.5 rounded-lg transition-colors ${
-                  activeView === "dashboard" && selectedDimension === "all"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                }`}
-              >
-                <LayoutDashboard className="h-4 w-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0">
-                  <div className="truncate font-semibold">Visión Global 360°</div>
-                  <p className="text-[10px] text-slate-400 font-normal truncate">
-                    Resumen macro CAMEL
-                  </p>
-                </div>
-              )}
-            </div>
+        <nav className="flex-1 p-2.5 space-y-3 overflow-y-auto">
+          {/* ======================================================== */}
+          {/* SECCIÓN 1: ANÁLISIS FINANCIERO                           */}
+          {/* ======================================================== */}
+          <div className="space-y-1">
             {!isCollapsed && (
-              <Badge variant="mint" className="text-[10px] px-1.5 py-0">
-                Público
-              </Badge>
-            )}
-          </button>
-
-          {/* 2. Sección: Dashboards Especializados por Dimensión CAMEL */}
-          <div className="pt-2">
-            {!isCollapsed ? (
-              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <span>Dashboards CAMEL</span>
-                <button
-                  type="button"
-                  onClick={() => setIsDimensionsOpen((prev) => !prev)}
-                  className="hover:text-slate-600 p-0.5 rounded"
-                  title={isDimensionsOpen ? "Ocultar dimensiones" : "Mostrar dimensiones"}
-                >
-                  {isDimensionsOpen ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3" />
-                  )}
-                </button>
-              </div>
-            ) : (
-              <div className="border-t border-slate-100 my-1 pt-1" />
-            )}
-
-            {(isDimensionsOpen || isCollapsed) && (
-              <div className="space-y-0.5 mt-0.5">
-                {CAMEL_DIMENSIONS.map((dim) => {
-                  const Icon = getDimensionIcon(dim.id)
-                  const isActive =
-                    activeView === "dashboard" && selectedDimension === dim.id
-
-                  return (
-                    <button
-                      key={dim.id}
-                      type="button"
-                      onClick={() => handleDimensionClick(dim.id)}
-                      title={isCollapsed ? `${dim.name} (${dim.badge})` : undefined}
-                      className={`w-full text-left rounded-lg text-xs transition-all flex items-center group ${
-                        isCollapsed
-                          ? "justify-center p-2"
-                          : "justify-between px-2.5 py-2 pl-3"
-                      } ${
-                        isActive
-                          ? "bg-emerald-100/70 text-emerald-950 font-bold border border-emerald-300/80 shadow-2xs"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className={`p-1 rounded-md transition-colors ${
-                            isActive
-                              ? "bg-emerald-700 text-white"
-                              : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        {!isCollapsed && (
-                          <div className="min-w-0">
-                            <span className="truncate block text-xs">
-                              {dim.shortName}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {!isCollapsed && (
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {dim.badge}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Análisis Financiero
               </div>
             )}
-          </div>
 
-          {/* Separador */}
-          <div className="border-t border-slate-100 my-2 pt-1" />
-
-          {!isCollapsed && (
-            <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Herramientas
-            </div>
-          )}
-
-          {/* 3. Benchmarking Pro */}
-          <button
-            type="button"
-            onClick={() => {
-              onSelectView("benchmarking")
-              if (onCloseMobile) onCloseMobile()
-            }}
-            title={isCollapsed ? "Benchmarking Pro (Comparador Multi-Entidad)" : undefined}
-            className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
-              isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
-            } ${
-              activeView === "benchmarking"
-                ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`p-1.5 rounded-lg transition-colors ${
-                  activeView === "benchmarking"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                }`}
-              >
-                <Scale className="h-4 w-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-semibold">Benchmarking Pro</span>
-                    {!isAccredited && (
-                      <Lock className="h-3 w-3 text-amber-500 shrink-0" />
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-normal truncate">
-                    Comparador & semáforo SEPS
-                  </p>
-                </div>
-              )}
-            </div>
-            {!isCollapsed && (
-              <Badge
-                variant={isAccredited ? "gold" : "slate"}
-                className="text-[10px] px-1.5 py-0"
-              >
-                {isAccredited ? "Activo" : "Pro"}
-              </Badge>
-            )}
-          </button>
-
-          {/* 4. Catálogo SEPS V3.0 */}
-          <button
-            type="button"
-            onClick={() => {
-              onSelectView("catalog")
-              if (onCloseMobile) onCloseMobile()
-            }}
-            title={isCollapsed ? "Catálogo de Indicadores SEPS V3.0" : undefined}
-            className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
-              isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
-            } ${
-              activeView === "catalog"
-                ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`p-1.5 rounded-lg transition-colors ${
-                  activeView === "catalog"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                }`}
-              >
-                <BookOpen className="h-4 w-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0">
-                  <span className="truncate font-semibold">Catálogo SEPS V3.0</span>
-                  <p className="text-[10px] text-slate-400 font-normal truncate">
-                    20+ fichas normativas
-                  </p>
-                </div>
-              )}
-            </div>
-            {!isCollapsed && (
-              <Badge variant="mint" className="text-[10px] px-1.5 py-0">
-                Norma
-              </Badge>
-            )}
-          </button>
-
-          {/* 5. Directorio de Cooperativas */}
-          <button
-            type="button"
-            onClick={() => {
-              onSelectView("entities")
-              if (onCloseMobile) onCloseMobile()
-            }}
-            title={isCollapsed ? "Directorio de Cooperativas Segmentos 1 y 2" : undefined}
-            className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
-              isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
-            } ${
-              activeView === "entities"
-                ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`p-1.5 rounded-lg transition-colors ${
-                  activeView === "entities"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                }`}
-              >
-                <Building2 className="h-4 w-4" />
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0">
-                  <span className="truncate font-semibold">Directorio</span>
-                  <p className="text-[10px] text-slate-400 font-normal truncate">
-                    Segmentos 1 y 2
-                  </p>
-                </div>
-              )}
-            </div>
-            {!isCollapsed && (
-              <Badge variant="slate" className="text-[10px] px-1.5 py-0">
-                {totalEntities}
-              </Badge>
-            )}
-          </button>
-
-          {/* 6. Panel de Administración de Usuarios (Solo Administrador) */}
-          {systemRole === "administrador" && (
+            {/* 1.1 Visión Global 360° */}
             <button
               type="button"
-              onClick={() => {
-                onSelectView("admin_users")
-                if (onCloseMobile) onCloseMobile()
-              }}
-              title={isCollapsed ? "Gestión de Usuarios Acreditados" : undefined}
+              onClick={handleGlobalClick}
+              title={isCollapsed ? "Visión Global 360° (Dashboard General)" : undefined}
               className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
                 isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
               } ${
-                activeView === "admin_users"
-                  ? "bg-purple-50/90 text-purple-950 font-semibold border border-purple-200/90 shadow-2xs"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    activeView === "admin_users"
-                      ? "bg-purple-600 text-white"
-                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
-                  }`}
-                >
-                  <Users className="h-4 w-4" />
-                </div>
-                {!isCollapsed && (
-                  <div className="min-w-0">
-                    <span className="truncate font-semibold">Usuarios</span>
-                    <p className="text-[10px] text-slate-400 font-normal truncate">
-                      Padrón acreditado
-                    </p>
-                  </div>
-                )}
-              </div>
-              {!isCollapsed && (
-                <Badge variant="gold" className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-800 border-purple-200">
-                  Admin
-                </Badge>
-              )}
-            </button>
-          )}
-
-          {/* 7. Bitácora de Auditoría Forense (Auditor y Administrador - AUD-14) */}
-          {(systemRole === "administrador" || systemRole === "auditor") && (
-            <button
-              type="button"
-              onClick={() => {
-                onSelectView("audit_logs")
-                if (onCloseMobile) onCloseMobile()
-              }}
-              title={isCollapsed ? "Bitácora de Auditoría Forense" : undefined}
-              className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
-                isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
-              } ${
-                activeView === "audit_logs"
+                activeView === "dashboard" && selectedDimension === "all"
                   ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }`}
@@ -492,28 +196,330 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className={`p-1.5 rounded-lg transition-colors ${
-                    activeView === "audit_logs"
+                    activeView === "dashboard" && selectedDimension === "all"
                       ? "bg-emerald-600 text-white"
                       : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
                   }`}
                 >
-                  <ShieldCheck className="h-4 w-4" />
+                  <LayoutDashboard className="h-4 w-4" />
                 </div>
                 {!isCollapsed && (
                   <div className="min-w-0">
-                    <span className="truncate font-semibold">Auditoría</span>
+                    <div className="truncate font-semibold">Visión Global 360°</div>
                     <p className="text-[10px] text-slate-400 font-normal truncate">
-                      Trazabilidad forense
+                      Resumen macro CAMEL
+                    </p>
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {/* 1.2 Dashboards Especializados por Dimensión CAMEL */}
+            <div className="pt-1">
+              {!isCollapsed ? (
+                <div className="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <span>Dimensiones CAMEL</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsDimensionsOpen((prev) => !prev)}
+                    className="hover:text-slate-600 p-0.5 rounded"
+                    title={isDimensionsOpen ? "Ocultar dimensiones" : "Mostrar dimensiones"}
+                  >
+                    {isDimensionsOpen ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="border-t border-slate-100 my-1 pt-1" />
+              )}
+
+              {(isDimensionsOpen || isCollapsed) && (
+                <div className="space-y-0.5 mt-0.5">
+                  {CAMEL_DIMENSIONS.map((dim) => {
+                    const Icon = getDimensionIcon(dim.id)
+                    const isActive =
+                      activeView === "dashboard" && selectedDimension === dim.id
+
+                    return (
+                      <button
+                        key={dim.id}
+                        type="button"
+                        onClick={() => handleDimensionClick(dim.id)}
+                        title={isCollapsed ? `${dim.name} (${dim.badge})` : undefined}
+                        className={`w-full text-left rounded-lg text-xs transition-all flex items-center group ${
+                          isCollapsed
+                            ? "justify-center p-2"
+                            : "justify-between px-2.5 py-2 pl-3"
+                        } ${
+                          isActive
+                            ? "bg-emerald-100/70 text-emerald-950 font-bold border border-emerald-300/80 shadow-2xs"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`p-1 rounded-md transition-colors ${
+                              isActive
+                                ? "bg-emerald-700 text-white"
+                                : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="min-w-0">
+                              <span className="truncate block text-xs">
+                                {dim.shortName}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {!isCollapsed && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {dim.badge}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 1.3 Diagnóstico CAMEL & Benchmarking */}
+            <button
+              type="button"
+              onClick={() => {
+                onSelectView("benchmarking")
+                if (onCloseMobile) onCloseMobile()
+              }}
+              title={isCollapsed ? "Diagnóstico CAMEL & Benchmarking" : undefined}
+              className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+              } ${
+                activeView === "benchmarking"
+                  ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    activeView === "benchmarking"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                  }`}
+                >
+                  <Scale className="h-4 w-4" />
+                </div>
+                {!isCollapsed && (
+                  <div className="min-w-0">
+                    <span className="truncate font-semibold">Diagnóstico CAMEL</span>
+                    <p className="text-[10px] text-slate-400 font-normal truncate">
+                      Benchmarking & semáforo SEPS
+                    </p>
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {/* 1.4 Directorio de Cooperativas */}
+            <button
+              type="button"
+              onClick={() => {
+                onSelectView("entities")
+                if (onCloseMobile) onCloseMobile()
+              }}
+              title={isCollapsed ? "Directorio de Cooperativas Segmentos 1 y 2" : undefined}
+              className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+              } ${
+                activeView === "entities"
+                  ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    activeView === "entities"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                  }`}
+                >
+                  <Building2 className="h-4 w-4" />
+                </div>
+                {!isCollapsed && (
+                  <div className="min-w-0">
+                    <span className="truncate font-semibold">Directorio COAC</span>
+                    <p className="text-[10px] text-slate-400 font-normal truncate">
+                      Segmentos 1 y 2
                     </p>
                   </div>
                 )}
               </div>
               {!isCollapsed && (
-                <Badge variant="slate" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800 border-emerald-200">
-                  Logs
+                <Badge variant="slate" className="text-[10px] px-1.5 py-0">
+                  {totalEntities}
                 </Badge>
               )}
             </button>
+          </div>
+
+          {/* ======================================================== */}
+          {/* SECCIÓN 2: NORMATIVA Y REGULACIÓN                        */}
+          {/* ======================================================== */}
+          <div className="space-y-1 pt-1 border-t border-slate-100">
+            {!isCollapsed && (
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Normativa y Regulación
+              </div>
+            )}
+
+            {/* 2.1 Catálogo SEPS V3.0 */}
+            <button
+              type="button"
+              onClick={() => {
+                onSelectView("catalog")
+                if (onCloseMobile) onCloseMobile()
+              }}
+              title={isCollapsed ? "Catálogo de Indicadores SEPS V3.0" : undefined}
+              className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+              } ${
+                activeView === "catalog"
+                  ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    activeView === "catalog"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                  }`}
+                >
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                {!isCollapsed && (
+                  <div className="min-w-0">
+                    <span className="truncate font-semibold">Catálogo SEPS v3.0</span>
+                    <p className="text-[10px] text-slate-400 font-normal truncate">
+                      Fichas metodológicas
+                    </p>
+                  </div>
+                )}
+              </div>
+              {!isCollapsed && (
+                <Badge variant="mint" className="text-[10px] px-1.5 py-0">
+                  Fichas
+                </Badge>
+              )}
+            </button>
+          </div>
+
+          {/* ======================================================== */}
+          {/* SECCIÓN 3: GOBERNANZA INSTITUCIONAL (Auditores / Admin)  */}
+          {/* ======================================================== */}
+          {(systemRole === "administrador" || systemRole === "auditor") && (
+            <div className="space-y-1 pt-1 border-t border-slate-100">
+              {!isCollapsed && (
+                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Gobernanza Institucional
+                </div>
+              )}
+
+              {/* 3.1 Bitácora de Auditoría Forense */}
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectView("audit_logs")
+                  if (onCloseMobile) onCloseMobile()
+                }}
+                title={isCollapsed ? "Bitácora de Auditoría Forense" : undefined}
+                className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                  isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+                } ${
+                  activeView === "audit_logs"
+                    ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      activeView === "audit_logs"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                    }`}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                  </div>
+                  {!isCollapsed && (
+                    <div className="min-w-0">
+                      <span className="truncate font-semibold">Auditoría</span>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">
+                        Trazabilidad forense
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <Badge variant="slate" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800 border-emerald-200">
+                    Logs
+                  </Badge>
+                )}
+              </button>
+
+              {/* 3.2 Panel de Usuarios Acreditados (Solo Administrador) */}
+              {systemRole === "administrador" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectView("admin_users")
+                    if (onCloseMobile) onCloseMobile()
+                  }}
+                  title={isCollapsed ? "Gestión de Usuarios Acreditados" : undefined}
+                  className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                    isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+                  } ${
+                    activeView === "admin_users"
+                      ? "bg-purple-50/90 text-purple-950 font-semibold border border-purple-200/90 shadow-2xs"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        activeView === "admin_users"
+                          ? "bg-purple-600 text-white"
+                          : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                      }`}
+                    >
+                      <Users className="h-4 w-4" />
+                    </div>
+                    {!isCollapsed && (
+                      <div className="min-w-0">
+                        <span className="truncate font-semibold">Usuarios</span>
+                        <p className="text-[10px] text-slate-400 font-normal truncate">
+                          Padrón acreditado
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {!isCollapsed && (
+                    <Badge variant="gold" className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-800 border-purple-200">
+                      Admin
+                    </Badge>
+                  )}
+                </button>
+              )}
+            </div>
           )}
         </nav>
 
@@ -526,7 +532,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full text-xs font-medium h-9 text-slate-700 hover:text-slate-900 hover:bg-white hover:border-slate-200 transition-all ${
               isCollapsed ? "justify-center px-0" : "justify-between px-3"
             }`}
-            title={isCollapsed ? (isAccredited ? "Cerrar sesión" : "Iniciar sesión") : undefined}
+            title={isCollapsed ? (isAccredited ? "Cerrar sesión" : "Acceso institucional") : undefined}
           >
             <div className="flex items-center gap-2 min-w-0">
               {isAccredited ? (
@@ -536,13 +542,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
               {!isCollapsed && (
                 <span className="truncate font-semibold">
-                  {isAccredited ? "Cerrar Sesión" : "Iniciar Sesión"}
+                  {isAccredited ? "Cerrar Sesión" : "Acceso Institucional"}
                 </span>
               )}
             </div>
             {!isCollapsed && isAccredited && (
-              <Badge variant="gold" className="text-[9px] px-1.5 py-0 h-4">
-                Pro
+              <Badge variant="mint" className="text-[9px] px-1.5 py-0 h-4">
+                Acreditado
               </Badge>
             )}
           </Button>

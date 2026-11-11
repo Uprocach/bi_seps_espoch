@@ -51,9 +51,9 @@ export const LoginModal: React.FC = () => {
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900 font-serif flex items-center gap-2">
-              Acreditación Institucional
+              Acceso Institucional
               <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-700 text-white rounded-full">
-                Capa Pro
+                ESPOCH
               </span>
             </h3>
             <p className="text-xs text-slate-500">
@@ -142,7 +142,7 @@ export const LoginModal: React.FC = () => {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Ingresar a la Capa Pro</span>
+                  <span>Ingresar a la Plataforma</span>
                 </>
               )}
             </button>

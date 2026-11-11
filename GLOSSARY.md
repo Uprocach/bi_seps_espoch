@@ -29,11 +29,11 @@ Metodología de supervisión y calificación de riesgo financiero:
   - `lower_is_better`: Mientras menor sea el valor, mejor es la salud financiera (ej. Morosidad, Gastos Operativos).
   - `neutral`: Un valor intermedio o en rango óptimo es el deseable (ej. Intermediación Financiera).
 
-## 4. Roles y Seguridad (RBAC)
-- **Vista Pública**: Indicadores agregados a nivel país y segmento, y catálogo de fichas.
-- **Capa Pro (Acreditada)**: Acceso a microdatos por cooperativa, benchmarking comparativo y exportación.
+## 4. Niveles de Acceso y Roles (RBAC)
+- **Acceso Abierto (Macro/Sectorial)**: Indicadores agregados del sector cooperativo a nivel país y segmento SEPS, y catálogo normativo de fichas metodológicas.
+- **Acceso Institucional Acreditado**: Acceso a microdatos detallados por cooperativa supervisada, diagnóstico y benchmarking CAMEL, bitácora de auditoría forense y gestión de credenciales.
   - `investigador`: Consulta analítica completa y exportación de microdatos en formato CSV.
-  - `auditor`: Lo anterior más descarga de reportes ejecutivos en Excel y visualización de logs de auditoría.
+  - `auditor`: Lo anterior más descarga de reportes ejecutivos en Excel y visualización de logs de auditoría forense.
   - `administrador`: Control total del sistema y gestión del padrón de usuarios acreditados.
 
 ## 5. Gestión de Identidades y Credenciales
