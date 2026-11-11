@@ -27,7 +27,7 @@ def get_benchmark_matrix(
         raise APIProblemException(
             status_code=403,
             title="Acceso Denegado",
-            detail="La matriz de benchmarking analítica multi-entidad requiere acreditación Pro activa."
+            detail="La matriz de benchmarking analítica multi-entidad requiere credenciales institucionales acreditadas."
         )
 
     result = repo.get_benchmark_matrix(rucs=ruc, period=period)
@@ -65,15 +65,6 @@ def get_indicator_series(
     response: Response = Response(),
     request: Request = None
 ):
-    # La consulta granular de entidades exige perfil Acreditado
-    if level == "entity":
-        if not user or (normalize_role(user.get("role")) not in ALLOWED_ROLES and user.get("role") not in ALLOWED_ROLES):
-            raise APIProblemException(
-                status_code=403,
-                title="Acceso Restringido",
-                detail="La consulta de series temporales de microdatos individuales de cooperativas requiere acreditación Pro (ESPOCH - DI - 060)."
-            )
-
     result = repo.get_indicator_series(
         indicator=indicator,
         level=level,

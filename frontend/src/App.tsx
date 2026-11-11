@@ -383,6 +383,9 @@ const AppContent: React.FC = () => {
               onNavigateToDashboard={() => {
                 setActiveView("dashboard")
                 setSelectedDimension("all")
+                if (selectedRucs.length > 0) {
+                  setLevel("entity")
+                }
               }}
               canExport={isAuthenticated}
             />

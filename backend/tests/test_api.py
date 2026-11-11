@@ -116,24 +116,24 @@ def test_indicators_series_segment():
     assert len(seg1.points) == 3
     assert seg1.points[-1].value > 90.0
 
-def test_indicators_series_entity_rbac():
-    """Valida el control de acceso RBAC para microdatos de entidad: 403 público vs 200 acreditado Pro."""
+def test_indicators_series_entity_public_and_accredited_access():
+    """Valida que la consulta de series a nivel entidad sea accesible tanto para público como para acreditados."""
     ruc = "0190155722001"
 
-    # 1. Acceso público sin rol acreditado debe ser denegado con 403
-    with pytest.raises(APIProblemException) as exc_unauth:
-        get_indicator_series(
-            indicator="roa",
-            level="entity",
-            ruc=[ruc],
-            from_="2025-01",
-            to="2025-12",
-            user=None
-        )
-    assert exc_unauth.value.status_code == 403
-    assert "acreditación Pro" in exc_unauth.value.detail
+    # 1. Acceso público sin autenticación (user=None) devuelve 200 con la serie de la cooperativa
+    data_public = get_indicator_series(
+        indicator="roa",
+        level="entity",
+        ruc=[ruc],
+        from_="2025-01",
+        to="2025-12",
+        user=None
+    )
+    validated_public = IndicatorSeriesResponse.model_validate(data_public)
+    assert len(validated_public.series) == 1
+    assert validated_public.series[0].points[0].value is not None
 
-    # 2. Acceso con token / usuario de rol investigador
+    # 2. Acceso con token / usuario acreditado
     data = get_indicator_series(
         indicator="roa",
         level="entity",
@@ -143,6 +143,7 @@ def test_indicators_series_entity_rbac():
         user=PRO_USER
     )
     validated = IndicatorSeriesResponse.model_validate(data)
+    assert len(validated.series) == 1
     assert len(validated.series) == 1
     assert validated.series[0].key == ruc
     assert "JARDIN AZUAYO" in validated.series[0].label

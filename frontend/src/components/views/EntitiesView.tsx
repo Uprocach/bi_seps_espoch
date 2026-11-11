@@ -39,36 +39,50 @@ export const EntitiesView: React.FC<EntitiesViewProps> = ({
 }) => {
   return (
     <div className="space-y-6">
-      {/* Banner Superior del Directorio */}
-      <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Cabecera Minimalista del Directorio */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs">
               <Building2 className="h-4 w-4" />
             </span>
-            <h2 className="text-lg font-bold font-serif text-white">
-              Padrón de Cooperativas de Ahorro y Crédito Supervisadas
+            <h2 className="text-base sm:text-lg font-bold font-serif tracking-tight text-slate-900">
+              Padrón de Cooperativas Supervisadas
             </h2>
+            <Badge variant="mint" className="text-[10px] uppercase font-bold">
+              Segmentos 1 y 2
+            </Badge>
           </div>
-          <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Consorcio de entidades clasificadas en Segmentos 1 y 2 por la SEPS. Selecciona cooperativas
-            para analizar sus series temporales en el panel analítico{canExport ? " o auditarlas en el módulo de Diagnóstico CAMEL." : "."}
+          <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">
+            Entidades supervisadas por la SEPS. Selecciona cooperativas para contrastar y visualizar sus series de tiempo en el panel analítico.
           </p>
         </div>
 
-        {canExport && (
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {selectedRucs.length > 0 && (
             <Button
-              variant="secondary"
+              variant="default"
+              size="sm"
+              onClick={onNavigateToDashboard}
+              className="text-xs h-8 font-semibold gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs"
+            >
+              <span>Ver en Gráfico ({selectedRucs.length})</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
+          {canExport && (
+            <Button
+              variant="outline"
               size="sm"
               onClick={onNavigateToBenchmarking}
-              className="text-xs h-9 font-semibold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm"
+              className="text-xs h-8 font-semibold gap-1.5 text-emerald-800 border-emerald-300 hover:bg-emerald-50 shadow-2xs"
             >
               <Scale className="h-3.5 w-3.5" />
               <span>Diagnóstico CAMEL</span>
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Tabla de Entidades con buscador y paginación */}

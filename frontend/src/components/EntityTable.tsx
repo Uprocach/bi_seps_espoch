@@ -40,12 +40,11 @@ export const EntityTable: React.FC<EntityTableProps> = ({
     <Card className="border-slate-200/80 shadow-sm overflow-hidden print:border-none print:shadow-none">
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3">
         <div>
-          <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-emerald-700" />
-            <span>Directorio y Benchmark de Cooperativas</span>
+          <CardTitle className="text-sm font-bold text-slate-800">
+            Listado de Cooperativas Registradas
           </CardTitle>
           <CardDescription className="text-xs text-slate-500">
-            {totalItems} entidades supervisadas por la SEPS ordenadas por activos. Selecciona hasta 3 para comparar.
+            {totalItems} entidades ordenadas por activos. Selecciona hasta 3 para contrastar en el gráfico.
           </CardDescription>
         </div>
 
