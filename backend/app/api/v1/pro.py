@@ -50,6 +50,35 @@ def compare_entities(
 
     return result
 
+@router.api_route(
+    "/compare",
+    methods=["GET", "POST"],
+    summary="Motor Analítico de Benchmarking (Alias compatible)",
+    description="Alias compatible hacia /benchmarking/compare para evaluación CAMEL multi-entidad.",
+    include_in_schema=False
+)
+def compare_entities_alias(
+    request: Request,
+    user: Annotated[dict, Depends(require_roles(["investigador", "auditor", "administrador"]))],
+    indicator: str | None = None,
+    rucs: str | None = None,
+    req_body: BenchmarkingCompareRequest | None = None
+):
+    if req_body is not None:
+        return compare_entities(req=req_body, request=request, user=user)
+
+    ruc_list = [r.strip() for r in (rucs or "").split(",") if r.strip()]
+    if not ruc_list:
+        ruc_list = ["0190155722001"]
+
+    req = BenchmarkingCompareRequest(
+        entity_ids=ruc_list[:5],
+        start_date="2024-01",
+        end_date="2025-12",
+        camel_dimension=None
+    )
+    return compare_entities(req=req, request=request, user=user)
+
 @router.get(
     "/benchmarking/ranking",
     response_model=BenchmarkingRankingResponse,

@@ -12,12 +12,22 @@ repo = AnalyticsRepository()
 ALLOWED_ROLES = {"investigador", "auditor", "administrador", "researcher", "admin"}
 
 @router.get(
+    "/metadata",
+    summary="Catálogos de filtros y metadatos (Alias)",
+    description="Alias compatible hacia /api/v1/metadata/filters para consulta pública de metadatos.",
+    include_in_schema=False
+)
+def get_indicators_metadata(response: Response):
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return repo.get_metadata_filters()
+
+@router.get(
     "/benchmark-matrix",
     summary="Matriz consolidada de benchmarking CAMEL",
     description="Devuelve la matriz de benchmarking comparativa con valores de entidad, medias de Segmento 1 y País en una única consulta con soporte ETag/304."
 )
 def get_benchmark_matrix(
-    ruc: Annotated[list[str], Query(description="RUCs de las cooperativas a comparar")],
+    ruc: Annotated[list[str] | None, Query(description="RUCs de las cooperativas a comparar")] = None,
     period: Annotated[str | None, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="Periodo de corte YYYY-MM")] = None,
     user: Annotated[dict | None, Depends(get_current_user_optional)] = None,
     response: Response = Response(),
@@ -28,6 +38,14 @@ def get_benchmark_matrix(
             status_code=403,
             title="Acceso Denegado",
             detail="La matriz de benchmarking analítica multi-entidad requiere credenciales institucionales acreditadas."
+        )
+
+    if not ruc:
+        raise APIProblemException(
+            status_code=422,
+            title="Error de validación",
+            detail="Debe especificar al menos un parámetro 'ruc' para consultar la matriz de benchmarking.",
+            errors=[{"field": "ruc", "message": "Field required"}]
         )
 
     result = repo.get_benchmark_matrix(rucs=ruc, period=period)

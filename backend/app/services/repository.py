@@ -284,6 +284,8 @@ class AnalyticsRepository:
                 seg_filter_sql = ""
                 seg_params = [indicator, from_period, to_period]
                 if segment:
+                    # Normalizar si el usuario pasa "1" -> "SEGMENTO_1"
+                    segment = [f"SEGMENTO_{s}" if s.isdigit() else s for s in segment]
                     placeholders = ", ".join(["?"] * len(segment))
                     seg_filter_sql = f"AND segment IN ({placeholders})"
                     seg_params.extend(segment)
