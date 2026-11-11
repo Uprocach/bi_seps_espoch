@@ -571,6 +571,97 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/admin/pipeline-sync:
+    post:
+      tags: [Admin]
+      operationId: triggerPipelineSync
+      summary: Disparar sincronización automatizada con el portal SEPS
+      description: |
+        Inicia la verificación y descarga desatendida de nuevos boletines contables B11 desde el portal oficial de estadísticas de la SEPS. Exclusivo para rol `administrador`.
+      requestBody:
+        description: Parámetros opcionales para la sincronización web.
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineSyncRequest'
+            examples:
+              default:
+                summary: Parámetros por defecto
+                value:
+                  force: false
+                  dry_run: false
+      responses:
+        '200':
+          description: Resultado de la sincronización en modo directo o simulado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineSyncStatusResponse'
+              examples:
+                default:
+                  summary: Sincronización finalizada o simulada
+                  value:
+                    status: success
+                    progress_percent: 100
+                    detected_period: '2026-01'
+                    message: Sincronización completada exitosamente.
+                    last_sync_timestamp: '2026-11-11T12:00:00Z'
+                    error_message: ''
+        '202':
+          description: Tarea de sincronización aceptada y en ejecución en segundo plano.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineSyncStatusResponse'
+              examples:
+                default:
+                  summary: Tarea iniciada en segundo plano
+                  value:
+                    status: downloading
+                    progress_percent: 15
+                    detected_period: '2026-01'
+                    message: Descargando boletín financiero desde el portal SEPS.
+                    last_sync_timestamp: '2026-11-11T12:00:00Z'
+                    error_message: ''
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/admin/pipeline-sync-status:
+    get:
+      tags: [Admin]
+      operationId: getPipelineSyncStatus
+      summary: Consultar estado de la tarea de sincronización web SEPS
+      description: |
+        Retorna el avance y estado en vivo de la sincronización con el portal de la SEPS. Exclusivo para roles `auditor` y `administrador`.
+      responses:
+        '200':
+          description: Estado en vivo del proceso de sincronización web.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineSyncStatusResponse'
+              examples:
+                default:
+                  summary: Estado actual de la tarea
+                  value:
+                    status: idle
+                    progress_percent: 100
+                    detected_period: '2025-12'
+                    message: Sistema sincronizado. No se detectaron boletines pendientes.
+                    last_sync_timestamp: '2026-11-11T12:00:00Z'
+                    error_message: ''
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   parameters:
     SegmentFilter:
@@ -1249,3 +1340,51 @@ components:
           nullable: true
           description: Marca temporal ISO 8601 del último reemplazo atómico realizado.
           example: '2026-11-11T10:00:00Z'
+
+    PipelineSyncRequest:
+      type: object
+      description: Solicitud de sincronización con el portal web de estadísticas de la SEPS.
+      properties:
+        force:
+          type: boolean
+          description: Forzar reprocesamiento incluso si el periodo ya existe en el histórico.
+          example: false
+        dry_run:
+          type: boolean
+          description: Solo verificar disponibilidad sin descargar ni alterar datos.
+          example: false
+
+    PipelineSyncStatusResponse:
+      type: object
+      description: Estado de la tarea de sincronización web y descarga de boletines SEPS.
+      required: [status, progress_percent, message]
+      properties:
+        status:
+          type: string
+          description: Estado de la sincronización (idle, downloading, extracting, validating, success, failed).
+          example: success
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Porcentaje de avance de la tarea en curso (0-100).
+          example: 100
+        detected_period:
+          type: string
+          nullable: true
+          description: Periodo contable más reciente detectado en el portal SEPS (YYYY-MM).
+          example: '2026-01'
+        message:
+          type: string
+          description: Mensaje descriptivo del estado actual.
+          example: Sincronización completada exitosamente.
+        last_sync_timestamp:
+          type: string
+          nullable: true
+          description: Marca temporal ISO 8601 de la última ejecución.
+          example: '2026-11-11T12:00:00Z'
+        error_message:
+          type: string
+          nullable: true
+          description: Detalle del error si la tarea falló.
+          example: Ninguno

@@ -140,3 +140,24 @@ export interface BenchmarkingRankingResponse {
   total_ranked: number
   generated_at: string
 }
+
+export interface PipelineSyncStatus {
+  status: "idle" | "downloading" | "extracting" | "validating" | "success" | "failed"
+  progress_percent: number
+  message: string
+  detected_period?: string | null
+  last_sync_timestamp?: string | null
+  error_message?: string | null
+}
+
+export interface PipelineStatus {
+  status: string
+  active_mart_dir: string
+  latest_period: string
+  data_as_of: string
+  periods_count: number
+  entities_count: number
+  staging_ready: boolean
+  last_switch_timestamp?: string | null
+}
+

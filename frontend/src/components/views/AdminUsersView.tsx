@@ -15,6 +15,8 @@ import {
   FileSpreadsheet
 } from "lucide-react"
 import type { AdminUserListItem, Role } from "@/types/camel"
+import { PipelineSyncCard } from "@/components/admin/PipelineSyncCard"
+
 
 export const AdminUsersView: React.FC = () => {
   const [users, setUsers] = useState<AdminUserListItem[]>([])
@@ -280,6 +282,9 @@ export const AdminUsersView: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Sincronización Web SEPS y Pipeline Zero-Downtime */}
+      <PipelineSyncCard />
 
       {/* Tarjetas de Resumen */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

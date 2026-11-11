@@ -352,3 +352,15 @@ class PipelineStatusResponse(BaseModel):
     entities_count: int
     staging_ready: bool
     last_switch_timestamp: str | None = None
+
+class PipelineSyncRequest(BaseModel):
+    force: bool = False
+    dry_run: bool = False
+
+class PipelineSyncStatusResponse(BaseModel):
+    status: str
+    progress_percent: int
+    message: str
+    detected_period: str | None = None
+    last_sync_timestamp: str | None = None
+    error_message: str | None = None

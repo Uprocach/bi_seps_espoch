@@ -78,12 +78,41 @@ def execute_rollback():
     print(f"[+] Rollback completado a las {record['timestamp']}.")
     print_status()
 
+def execute_sync_web(force: bool = False):
+    """Ejecuta el crawler SEPS, reconstruye mart_staging, valida con Gatekeeper y conmuta a producción."""
+    from etl.seps_crawler import seps_crawler
+    from etl.build_marts import build_marts
+
+    print("=" * 60)
+    print("INICIANDO SINCRONIZACIÓN AUTOMATIZADA WEB SEPS")
+    print("=" * 60)
+    def cli_progress(stage, pct, msg):
+        print(f"  [{stage.upper():10}] {pct:3}% -> {msg}")
+
+    result = seps_crawler.sync(force=force, progress_callback=cli_progress)
+    if result.get("status") == "already_up_to_date" and not force:
+        print("[+] Los datos locales ya están al día con el portal SEPS.")
+        print_status()
+        return
+
+    staging_dir = settings.DATA_MART_DIR.parent / "mart_staging"
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["MART_DIR"] = str(staging_dir)
+
+    print("[*] Reconstruyendo cubos analíticos en mart_staging...")
+    build_marts()
+
+    print("[*] Ejecutando validación y conmutación atómica...")
+    execute_switch("mart_staging", trigger_user="monthly_pipeline_cli")
+
 def main():
     parser = argparse.ArgumentParser(description="Orquestador de Pipeline Zero-Downtime ESPOCH-DI-060")
     parser.add_argument("--status", action="store_true", help="Consultar estado del Data Mart activo")
     parser.add_argument("--validate", nargs="?", const="mart", help="Validar directorio específico (default: mart)")
     parser.add_argument("--switch", nargs="?", const="mart_staging", help="Ejecutar switch atómico al directorio indicado")
     parser.add_argument("--rollback", action="store_true", help="Revertir al Data Mart base ('mart')")
+    parser.add_argument("--sync-web", action="store_true", help="Sincronizar y descargar automáticamente datos desde el portal SEPS")
+    parser.add_argument("--force", action="store_true", help="Forzar re-descarga aunque el año ya exista localmente")
 
     args = parser.parse_args()
 
@@ -97,6 +126,8 @@ def main():
         execute_switch(args.switch)
     elif args.rollback:
         execute_rollback()
+    elif args.sync_web:
+        execute_sync_web(force=args.force)
     else:
         print_status()
 
