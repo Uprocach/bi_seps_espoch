@@ -74,6 +74,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar bitácora de auditoría forense
+         * @description Devuelve los registros históricos de auditoría forense y trazabilidad de accesos (descargas masivas, inicios de sesión y mutaciones administrativas). Exclusivo para roles `auditor` y `administrador`.
+         */
+        get: operations["getAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -104,7 +124,7 @@ export interface components {
          * @example morosidad_cartera_total
          * @enum {string}
          */
-        IndicatorId: "morosidad_cartera_total" | "cobertura_cartera_improductiva" | "roa" | "roe" | "solvencia_patrimonial" | "liquidez_inmediata" | "intermediacion_financiera" | "eficiencia_operativa";
+        IndicatorId: "solvencia_patrimonial" | "seps_2_proporcion_de_activos_improductiv" | "seps_3_proporcion_de_activos_productivos" | "seps_4_utilizaci_n_del_pasivo_con_costo_" | "morosidad_cartera_total" | "seps_6_morosidad_de_cartera_comercial_pr" | "seps_7_morosidad_de_cartera_de_consumo_p" | "seps_8_morosidad_de_cartera_inmobiliaria" | "seps_9_morosidad_de_microcredito" | "seps_10_morosidad_de_cartera_productiva" | "seps_11_morosidad_de_cartera_comercial_o" | "seps_12_morosidad_de_cartera_de_consumo_" | "seps_13_morosidad_de_cartera_de_vivienda" | "seps_14_morosidad_de_cartera_educativa" | "seps_15_morosidad_de_cartera_comercial" | "seps_16_morosidad_de_cartera_de_consumo" | "seps_17_morosidad_de_cartera_de_vivienda" | "cobertura_cartera_improductiva" | "seps_19_cobertura_de_la_cartera_de_cr_di" | "seps_20_cobertura_de_la_cartera_de_cr_di" | "seps_21_cobertura_de_la_cartera_inmobili" | "seps_22_cobertura_de_la_cartera_de_micro" | "seps_23_cobertura_de_la_cartera_producti" | "seps_24_cobertura_de_la_cartera_comercia" | "seps_25_cobertura_de_la_cartera_de_consu" | "seps_26_cobertura_de_la_cartera_de_vivie" | "seps_27_cobertura_de_la_cartera_de_cr_di" | "seps_28_cobertura_de_la_cartera_comercia" | "seps_29_cobertura_de_la_cartera_de_consu" | "seps_30_cobertura_de_la_cartera_de_vivie" | "eficiencia_operativa" | "seps_32_grado_de_absorci_n_del_margen_fi" | "seps_33_eficiencia_administrativa_de_per" | "roe" | "roa" | "intermediacion_financiera" | "seps_37_margen_de_intermediaci_n_estimad" | "seps_38_margen_de_intermediaci_n_estimad" | "seps_39_rendimiento_de_la_cartera_de_cr_" | "seps_40_rendimiento_de_la_cartera_de_cr_" | "seps_41_rendimiento_de_la_cartera_de_cr_" | "seps_42_rendimiento_de_la_cartera_de_cr_" | "seps_43_rendimiento_de_la_cartera_de_mic" | "seps_44_rendimiento_de_la_cartera_de_cr_" | "seps_45_rendimiento_de_la_cartera_de_cr_" | "seps_46_rendimiento_de_la_cartera_de_cr_" | "seps_47_rendimiento_de_la_cartera_de_viv" | "seps_48_rendimiento_de_la_cartera_de_cr_" | "seps_49_rendimiento_de_la_cartera_de_cr_" | "seps_50_rendimiento_de_la_cartera_de_cr_" | "seps_51_rendimiento_de_la_cartera_por_ve" | "liquidez_inmediata" | "seps_53_cartera_improductiva_descubierta" | "seps_54_cartera_improductiva_sobre_el_pa" | "seps_55_fk_patrimonio_resultados_ingreso" | "seps_56_fi_1_activos_improductivos_activ" | "seps_57_indice_de_capitalizaci_n_neto_fk" | "seps_58_patrimonio_t_cnico_primario" | "seps_59_patrimonio_t_cnico_secundario" | "seps_60_patrimonio_t_cnico_constituido" | "seps_61_activos_y_contingentes_ponderado" | "seps_62_solvencia" | "seps_63_porcentaje_t_cnico_requerido";
         /**
          * @description Nivel de agregación de la serie.
          * @example segment
@@ -193,6 +213,17 @@ export interface components {
              * @example 5
              */
             seps_ficha_number?: number;
+            /**
+             * Format: float
+             * @description Último valor agregado disponible a nivel nacional.
+             * @example 7.84
+             */
+            latest_value?: number | null;
+            /**
+             * @description Nota metodológica sobre devengo, componentes o estacionalidad.
+             * @example Excedente antes de impuestos de Ene-Nov vs. Excedente neto en Dic
+             */
+            methodological_note?: string | null;
         };
         /** @description Catálogos para los filtros globales de la interfaz. */
         FiltersMetadata: {
@@ -343,6 +374,38 @@ export interface components {
                 message: string;
             }[];
         };
+        /** @description Evento unitario de auditoría forense y cumplimiento institucional. */
+        AuditLogItem: {
+            /** @example 1 */
+            id: number;
+            /** @example 2026-11-10T18:00:00Z */
+            timestamp: string;
+            /** @example auditor.espoch */
+            user_sub: string;
+            /** @example auditor */
+            user_role: string;
+            /** @example export:excel */
+            action: string;
+            /** @example /api/v1/pro/export/excel */
+            resource: string;
+            details?: {
+                [key: string]: unknown;
+            };
+            /** @example 127.0.0.1 */
+            ip_address?: string | null;
+            /** @example Mozilla/5.0 */
+            user_agent?: string | null;
+        };
+        /** @description Respuesta paginada de la bitácora de auditoría forense. */
+        AuditLogsListResponse: {
+            logs: components["schemas"]["AuditLogItem"][];
+            /** @example 1 */
+            total: number;
+            /** @example 50 */
+            limit: number;
+            /** @example 0 */
+            offset: number;
+        };
     };
     responses: {
         /** @description Solicitud mal formada (p. ej. parámetro con formato inválido). */
@@ -374,6 +437,24 @@ export interface components {
         };
         /** @description Error inesperado del servidor. */
         InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Credenciales de acceso ausentes o inválidas. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Acceso no autorizado para el rol del usuario autenticado. */
+        Forbidden: {
             headers: {
                 [name: string]: unknown;
             };
@@ -497,6 +578,42 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getAuditLogs: {
+        parameters: {
+            query?: {
+                /** @description Límite de registros a retornar (máx. 500). */
+                limit?: number;
+                /** @description Desplazamiento para paginación. */
+                offset?: number;
+                /** @description Filtro opcional por identificador de usuario. */
+                user_sub?: string;
+                /** @description Filtro opcional por acción de auditoría. */
+                action?: string;
+                /** @description Fecha inicial de corte (YYYY-MM-DD). */
+                start_date?: string;
+                /** @description Fecha final de corte (YYYY-MM-DD). */
+                end_date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lista paginada de eventos de auditoría forense. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogsListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

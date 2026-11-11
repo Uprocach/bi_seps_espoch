@@ -30,7 +30,7 @@ import {
   type IndicatorCategory
 } from "@/data/extendedCatalog"
 
-export type ActiveView = "dashboard" | "benchmarking" | "catalog" | "entities" | "admin_users"
+export type ActiveView = "dashboard" | "benchmarking" | "catalog" | "entities" | "admin_users" | "audit_logs"
 export type UserRole = "public" | "accredited"
 
 interface SidebarProps {
@@ -467,6 +467,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && (
                 <Badge variant="gold" className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-800 border-purple-200">
                   Admin
+                </Badge>
+              )}
+            </button>
+          )}
+
+          {/* 7. Bitácora de Auditoría Forense (Auditor y Administrador - AUD-14) */}
+          {(systemRole === "administrador" || systemRole === "auditor") && (
+            <button
+              type="button"
+              onClick={() => {
+                onSelectView("audit_logs")
+                if (onCloseMobile) onCloseMobile()
+              }}
+              title={isCollapsed ? "Bitácora de Auditoría Forense" : undefined}
+              className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
+                isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
+              } ${
+                activeView === "audit_logs"
+                  ? "bg-emerald-50/90 text-emerald-950 font-semibold border border-emerald-200/90 shadow-2xs"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    activeView === "audit_logs"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800"
+                  }`}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                {!isCollapsed && (
+                  <div className="min-w-0">
+                    <span className="truncate font-semibold">Auditoría</span>
+                    <p className="text-[10px] text-slate-400 font-normal truncate">
+                      Trazabilidad forense
+                    </p>
+                  </div>
+                )}
+              </div>
+              {!isCollapsed && (
+                <Badge variant="slate" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800 border-emerald-200">
+                  Logs
                 </Badge>
               )}
             </button>

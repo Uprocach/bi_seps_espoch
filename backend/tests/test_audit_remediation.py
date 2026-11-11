@@ -195,3 +195,51 @@ def test_remediation_export_service_constant_memory_and_csv_bom():
     csv_chunks = list(export_service.stream_csv(req, delimiter=";"))
     assert csv_chunks[0] == "\ufeff"
     assert "periodo;ruc;nombre_comercial;razon_social" in csv_chunks[1]
+
+def test_remediation_aud16_ruc_format_validation():
+    """AUD-16: Valida rechazo de RUCs malformados o con inyección en Pydantic."""
+    from backend.app.models.schemas import BenchmarkingCompareRequest, ExportRequest
+
+    # Rechazar caracteres especiales / inyección SQL
+    with pytest.raises(ValueError) as exc1:
+        BenchmarkingCompareRequest(
+            entity_ids=["0190155722001' OR '1'='1"],
+            start_date="2025-01",
+            end_date="2025-12"
+        )
+    assert "Formato de RUC inválido" in str(exc1.value)
+
+    with pytest.raises(ValueError) as exc2:
+        ExportRequest(
+            entity_ids=["RUC_INVALIDO_TEXT"],
+            start_date="2025-01",
+            end_date="2025-12"
+        )
+    assert "Formato de RUC inválido" in str(exc2.value)
+
+def test_remediation_aud13_aud15_persistent_sqlite_audit_logs_and_wal():
+    """AUD-13 & AUD-15: Valida persistencia de audit_logs en SQLite y modo WAL activo."""
+    from backend.app.services.user_db_service import user_db
+    from backend.app.services.audit_service import audit_service
+
+    # 1. Validar que journal_mode es WAL
+    with user_db._get_connection() as conn:
+        mode = conn.execute("PRAGMA journal_mode;").fetchone()[0]
+        assert mode.lower() == "wal"
+
+    # 2. Registrar evento vía AuditService y recuperarlo vía query_events
+    test_action = "test:audit_remediation_verify"
+    audit_service.log_event(
+        user_sub="test_auditor",
+        user_role="auditor",
+        action=test_action,
+        resource="/test/resource",
+        details={"audit_verified": True}
+    )
+
+    events, total = audit_service.query_events(action=test_action)
+    assert total >= 1
+    matched = [e for e in events if e["action"] == test_action]
+    assert len(matched) >= 1
+    assert matched[0]["user_sub"] == "test_auditor"
+    assert matched[0]["user_role"] == "auditor"

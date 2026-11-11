@@ -9,6 +9,7 @@ import xlsxwriter
 import duckdb
 
 from backend.app.core.config import settings
+from backend.app.services.mart_provider import mart_provider, MartPathProvider
 from backend.app.models.schemas import ExportRequest, BenchmarkingCompareRequest
 from backend.app.services.benchmarking_service import benchmarking_service
 from backend.app.services.camel_evaluator import camel_evaluator
@@ -47,25 +48,22 @@ class ExportService:
     """Pipeline de exportación y streaming de microdatos y reportes multi-pestaña para la Capa Pro."""
 
     def __init__(self, mart_dir: Path | None = None):
-        self.mart_dir = mart_dir or settings.DATA_MART_DIR
-        self._con = duckdb.connect()
-        self._con.execute("PRAGMA threads=4;")
+        self.mart_provider = MartPathProvider(mart_dir) if mart_dir else mart_provider
+        self.mart_dir = self.mart_provider.mart_dir
+        self._con = self.mart_provider.create_connection(threads=4)
 
     def _p(self, name: str) -> str:
-        return str(self.mart_dir / f"{name}.parquet").replace("\\", "/")
+        return self.mart_provider.p(name)
 
     def _p_entity_partitioned(self) -> str:
         """Ruta al árbol de particiones Hive en Parquet para optimizar consultas de microdatos con partition pruning."""
-        partitioned_path = self.mart_dir / "partitioned" / "fct_indicators_entity"
-        if partitioned_path.exists():
-            return str(partitioned_path / "*/*/*.parquet").replace("\\", "/")
-        return self._p("fct_indicators_entity_monthly")
+        return self.mart_provider.p_entity_partitioned()
 
     def stream_csv(self, req: ExportRequest, delimiter: str = ",") -> Generator[str, None, None]:
         """Genera y emite en streaming el archivo CSV con los microdatos granulares de las cooperativas."""
         cursor = self._con.cursor()
         try:
-            ruc_in_clause = ",".join([f"'{ruc}'" for ruc in req.entity_ids])
+            placeholders = ",".join(["?"] * len(req.entity_ids))
 
             # Emitir UTF-8 BOM para apertura nativa e inmediata en Excel en español
             yield "\ufeff"
@@ -92,7 +90,7 @@ class ExportService:
             csv.writer(header_sio, delimiter=delimiter).writerow(headers)
             yield header_sio.getvalue()
 
-            # Consultar microdatos combinando dimensiones y líneas base en DuckDB aprovechando particionado Hive
+            # Consultar microdatos combinando dimensiones y líneas base en DuckDB aprovechando particionado Hive (Parametrizada - AUD-16)
             query = f"""
                 SELECT 
                     e.period,
@@ -114,12 +112,12 @@ class ExportService:
                 LEFT JOIN read_parquet('{self._p("fct_indicators_country_monthly")}') cty
                        ON e.indicator_id = cty.indicator_id 
                       AND e.period = cty.period
-                WHERE e.ruc IN ({ruc_in_clause})
+                WHERE e.ruc IN ({placeholders})
                   AND e.period >= ? AND e.period <= ?
                 ORDER BY e.period ASC, e.indicator_id ASC, e.ruc ASC;
             """
 
-            cursor.execute(query, [req.start_date, req.end_date])
+            cursor.execute(query, req.entity_ids + [req.start_date, req.end_date])
             spec_map = {i["id"]: i for i in benchmarking_service.spec.get("indicators", [])}
 
             batch_size = 500

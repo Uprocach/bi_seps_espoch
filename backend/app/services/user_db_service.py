@@ -22,8 +22,9 @@ class UserDBService:
             pass
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), timeout=10.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=15.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 5000;")
         return conn
 
     @staticmethod
@@ -41,6 +42,9 @@ class UserDBService:
     def _init_db(self):
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            # Optimizaciones de concurrencia y durabilidad (WAL mode - AUD-15)
+            cursor.execute("PRAGMA journal_mode = WAL;")
+            cursor.execute("PRAGMA synchronous = NORMAL;")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,6 +62,24 @@ class UserDBService:
             """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+
+            # Bitácora de auditoría forense persistente (AUD-13 y AUD-14)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    user_sub TEXT NOT NULL,
+                    user_role TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    resource TEXT NOT NULL,
+                    details_json TEXT NOT NULL DEFAULT '{}',
+                    ip_address TEXT,
+                    user_agent TEXT
+                );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user_sub ON audit_logs(user_sub);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);")
             conn.commit()
 
             # Sembrar usuarios iniciales si la tabla está vacía
@@ -265,5 +287,79 @@ class UserDBService:
             cursor = conn.cursor()
             cursor.execute("UPDATE users SET last_login_at = ? WHERE id = ?;", (now, user_id))
             conn.commit()
+
+    def insert_audit_log(
+        self,
+        timestamp: str,
+        user_sub: str,
+        user_role: str,
+        action: str,
+        resource: str,
+        details_json: str = "{}",
+        ip_address: str | None = None,
+        user_agent: str | None = None
+    ) -> int:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO audit_logs 
+                (timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """, (timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent))
+            log_id = cursor.lastrowid
+            conn.commit()
+            return log_id # type: ignore
+
+    def list_audit_logs(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        user_sub: str | None = None,
+        action: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None
+    ) -> tuple[list[dict], int]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            where_clauses = ["1=1"]
+            params: list[Any] = []
+
+            if user_sub:
+                where_clauses.append("LOWER(user_sub) LIKE ?")
+                params.append(f"%{user_sub.strip().lower()}%")
+
+            if action:
+                where_clauses.append("action = ?")
+                params.append(action.strip())
+
+            if start_date:
+                where_clauses.append("timestamp >= ?")
+                params.append(start_date.strip())
+
+            if end_date:
+                # Si viene YYYY-MM-DD agregamos fin del día
+                val = end_date.strip()
+                if len(val) == 10:
+                    val += "T23:59:59"
+                where_clauses.append("timestamp <= ?")
+                params.append(val)
+
+            where_str = " AND ".join(where_clauses)
+
+            # Contar total de registros filtrados
+            cursor.execute(f"SELECT COUNT(*) FROM audit_logs WHERE {where_str};", params)
+            total = cursor.fetchone()[0]
+
+            # Consultar página con orden cronológico descendente
+            query = f"""
+                SELECT id, timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent
+                FROM audit_logs
+                WHERE {where_str}
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?;
+            """
+            cursor.execute(query, params + [limit, offset])
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows], total
 
 user_db = UserDBService()

@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { LoginModal } from "@/components/auth/LoginModal"
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal"
 import { AdminUsersView } from "@/components/views/AdminUsersView"
+import { AuditLogsView } from "@/components/views/AuditLogsView"
 import { useAuthStore } from "@/store/useAuthStore"
 import {
   fetchMetadataFilters,
@@ -387,6 +388,16 @@ const AppContent: React.FC = () => {
               fallbackDescription="La gestión del padrón de usuarios institucionales está restringida exclusivamente a usuarios con rol de Administrador."
             >
               <AdminUsersView />
+            </ProtectedRoute>
+          )}
+
+          {activeView === "audit_logs" && (
+            <ProtectedRoute
+              requiredRoles={["auditor", "administrador"]}
+              fallbackTitle="Módulo de Auditoría Forense"
+              fallbackDescription="La consulta y trazabilidad de eventos del sistema está reservada para usuarios con rol de Auditor o Administrador."
+            >
+              <AuditLogsView />
             </ProtectedRoute>
           )}
         </main>

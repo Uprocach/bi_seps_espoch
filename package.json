@@ -10,7 +10,7 @@
     "contract": "npm run contract:lint && npm run contract:mock",
     "etl:run": ".venv\\Scripts\\python.exe etl/build_marts.py",
     "etl:test": ".venv\\Scripts\\python.exe etl/test_marts.py",
-    "backend:test": ".venv\\Scripts\\python.exe -m pytest backend/tests/test_api.py -v",
+    "backend:test": ".venv\\Scripts\\python.exe -m pytest backend/tests -v",
     "backend:dev": ".venv\\Scripts\\uvicorn.exe backend.app.main:app --reload --port 8000",
     "frontend:codegen": "npm --prefix frontend run codegen:api",
     "frontend:build": "npm --prefix frontend run build",

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from backend.app.core.config import settings
 from backend.app.core.errors import APIProblemException
+from backend.app.services.mart_provider import mart_provider, MartPathProvider
 
 class AnalyticsRepository:
     ALLOWED_SORT_FIELDS = {
@@ -17,10 +18,10 @@ class AnalyticsRepository:
     }
 
     def __init__(self, mart_dir: Path | None = None):
-        self.mart_dir = mart_dir or settings.DATA_MART_DIR
+        self.mart_provider = MartPathProvider(mart_dir) if mart_dir else mart_provider
+        self.mart_dir = self.mart_provider.mart_dir
         self.spec = self._load_spec()
-        self._con = duckdb.connect()
-        self._con.execute("PRAGMA threads=4;")
+        self._con = self.mart_provider.create_connection(threads=4)
 
     @contextmanager
     def get_cursor(self):
@@ -36,14 +37,11 @@ class AnalyticsRepository:
             return json.load(f)
 
     def _p(self, name: str) -> str:
-        return str(self.mart_dir / f"{name}.parquet").replace("\\", "/")
+        return self.mart_provider.p(name)
 
     def _p_entity_partitioned(self) -> str:
         """Ruta al árbol de particiones Hive en Parquet para optimizar consultas de microdatos con partition pruning."""
-        partitioned_path = self.mart_dir / "partitioned" / "fct_indicators_entity"
-        if partitioned_path.exists():
-            return str(partitioned_path / "*/*/*.parquet").replace("\\", "/")
-        return self._p("fct_indicators_entity_monthly")
+        return self.mart_provider.p_entity_partitioned()
 
     def get_metadata_filters(self) -> dict:
         with self.get_cursor() as cursor:

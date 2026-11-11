@@ -1,4 +1,5 @@
-from typing import Literal
+import re
+from typing import Literal, Any
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 # Primitivos
@@ -224,11 +225,13 @@ class BenchmarkingCompareRequest(BaseModel):
             raise ValueError("Debe seleccionar al menos una entidad para benchmarking.")
         if len(v) > 5:
             raise ValueError("El benchmarking permite contrastar un máximo de 5 cooperativas simultáneamente.")
-        # Limpiar duplicados preservando orden
+        # Limpiar duplicados preservando orden y validar formato RUC estricto (10 a 13 dígitos - AUD-16)
         seen = set()
         unique = []
         for ruc in v:
             clean = ruc.strip()
+            if not re.match(r"^\d{10,13}$", clean):
+                raise ValueError(f"Formato de RUC inválido: '{clean}'. Debe contener entre 10 y 13 dígitos numéricos.")
             if clean and clean not in seen:
                 seen.add(clean)
                 unique.append(clean)
@@ -271,6 +274,24 @@ class ExportRequest(BaseModel):
     end_date: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
     camel_dimension: CamelDimension | None = None
 
+    @field_validator("entity_ids")
+    @classmethod
+    def validate_entities_count(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("Debe seleccionar al menos una entidad para exportación.")
+        if len(v) > 5:
+            raise ValueError("La exportación permite un máximo de 5 cooperativas simultáneamente.")
+        seen = set()
+        unique = []
+        for ruc in v:
+            clean = ruc.strip()
+            if not re.match(r"^\d{10,13}$", clean):
+                raise ValueError(f"Formato de RUC inválido: '{clean}'. Debe contener entre 10 y 13 dígitos numéricos.")
+            if clean and clean not in seen:
+                seen.add(clean)
+                unique.append(clean)
+        return unique
+
 # -------------------------------------------------------------
 # Modelos Capa Pro: Ranking de COACs por Ficha
 # -------------------------------------------------------------
@@ -298,3 +319,23 @@ class BenchmarkingRankingResponse(BaseModel):
     ranking: list[EntityRankingItem]
     total_ranked: int
     generated_at: str
+
+# -------------------------------------------------------------
+# Modelos Auditoría Forense y Trazabilidad (AUD-14)
+# -------------------------------------------------------------
+class AuditLogItem(BaseModel):
+    id: int
+    timestamp: str
+    user_sub: str
+    user_role: str
+    action: str
+    resource: str
+    details: dict[str, Any] = {}
+    ip_address: str | None = None
+    user_agent: str | None = None
+
+class AuditLogsListResponse(BaseModel):
+    logs: list[AuditLogItem]
+    total: int
+    limit: int
+    offset: int

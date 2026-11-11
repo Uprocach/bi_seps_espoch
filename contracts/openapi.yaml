@@ -35,6 +35,8 @@ tags:
     description: Directorio de entidades financieras (cooperativas y mutualistas) supervisadas por la SEPS.
   - name: Indicators
     description: Series de tiempo de indicadores financieros a nivel país, segmento o entidad.
+  - name: Audit
+    description: Bitácora de auditoría forense y control de acceso (Compliance y RegTech).
 
 paths:
   /api/v1/metadata/filters:
@@ -453,6 +455,87 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Audit]
+      operationId: getAuditLogs
+      summary: Consultar bitácora de auditoría forense
+      description: |
+        Devuelve los registros históricos de auditoría forense y trazabilidad de accesos (descargas masivas, inicios de sesión y mutaciones administrativas). Exclusivo para roles `auditor` y `administrador`.
+      parameters:
+        - name: limit
+          in: query
+          description: Límite de registros a retornar (máx. 500).
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+        - name: offset
+          in: query
+          description: Desplazamiento para paginación.
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: user_sub
+          in: query
+          description: Filtro opcional por identificador de usuario.
+          required: false
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Filtro opcional por acción de auditoría.
+          required: false
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          description: Fecha inicial de corte (YYYY-MM-DD).
+          required: false
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: Fecha final de corte (YYYY-MM-DD).
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista paginada de eventos de auditoría forense.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogsListResponse'
+              examples:
+                default:
+                  summary: Ejemplo de eventos de auditoría
+                  value:
+                    logs:
+                      - id: 1
+                        timestamp: '2026-11-10T18:00:00Z'
+                        user_sub: auditor.espoch
+                        user_role: auditor
+                        action: export:excel
+                        resource: /api/v1/pro/export/excel
+                        details:
+                          entity_count: 2
+                        ip_address: '127.0.0.1'
+                        user_agent: 'Mozilla/5.0'
+                    total: 1
+                    limit: 50
+                    offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   parameters:
     SegmentFilter:
@@ -576,6 +659,34 @@ components:
                 title: Internal Server Error
                 status: 500
                 detail: Ocurrió un error inesperado. Intente nuevamente más tarde.
+    Unauthorized:
+      description: Credenciales de acceso ausentes o inválidas.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            unauthorized:
+              summary: No autenticado
+              value:
+                type: about:blank
+                title: Unauthorized
+                status: 401
+                detail: Token de acceso ausente o expirado.
+    Forbidden:
+      description: Acceso no autorizado para el rol del usuario autenticado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            forbidden:
+              summary: Acceso restringido
+              value:
+                type: about:blank
+                title: Forbidden
+                status: 403
+                detail: Acceso restringido a rol auditor o administrador.
 
   schemas:
     # ---------- Tipos primitivos de dominio ----------
@@ -1010,3 +1121,57 @@ components:
               message:
                 type: string
                 example: required when level=entity
+
+    AuditLogItem:
+      type: object
+      description: Evento unitario de auditoría forense y cumplimiento institucional.
+      required: [id, timestamp, user_sub, user_role, action, resource]
+      properties:
+        id:
+          type: integer
+          example: 1
+        timestamp:
+          type: string
+          example: '2026-11-10T18:00:00Z'
+        user_sub:
+          type: string
+          example: 'auditor.espoch'
+        user_role:
+          type: string
+          example: 'auditor'
+        action:
+          type: string
+          example: 'export:excel'
+        resource:
+          type: string
+          example: '/api/v1/pro/export/excel'
+        details:
+          type: object
+          additionalProperties: true
+        ip_address:
+          type: string
+          nullable: true
+          example: '127.0.0.1'
+        user_agent:
+          type: string
+          nullable: true
+          example: 'Mozilla/5.0'
+
+    AuditLogsListResponse:
+      type: object
+      description: Respuesta paginada de la bitácora de auditoría forense.
+      required: [logs, total, limit, offset]
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogItem'
+        total:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 50
+        offset:
+          type: integer
+          example: 0

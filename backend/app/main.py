@@ -17,6 +17,7 @@ from backend.app.api.v1.indicators import router as indicators_router
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.pro import router as pro_router
 from backend.app.api.v1.admin_users import router as admin_users_router
+from backend.app.api.v1.audit import router as audit_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -50,6 +51,7 @@ app.include_router(indicators_router, prefix=settings.API_V1_STR)
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(pro_router, prefix=settings.API_V1_STR)
 app.include_router(admin_users_router, prefix=settings.API_V1_STR)
+app.include_router(audit_router, prefix=settings.API_V1_STR)
 
 @app.get("/health", tags=["Health"])
 async def health_check():

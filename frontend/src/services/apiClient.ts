@@ -12,6 +12,8 @@ export type SeriesPoint = components["schemas"]["SeriesPoint"]
 export type SegmentCode = components["schemas"]["SegmentCode"]
 export type AggregationLevel = components["schemas"]["AggregationLevel"]
 export type IndicatorId = components["schemas"]["IndicatorId"]
+export type AuditLogItem = components["schemas"]["AuditLogItem"]
+export type AuditLogsListResponse = components["schemas"]["AuditLogsListResponse"]
 
 const API_BASE = "/api/v1"
 
@@ -163,5 +165,34 @@ export async function fetchBenchmarkMatrix(rucs: string[], period?: string): Pro
     const errorBody = await res.json().catch(() => ({}))
     throw new Error(errorBody.detail || `Error ${res.status}: Fallo al obtener matriz de benchmark`)
   }
+  return res.json()
+}
+
+export async function fetchAuditLogs(params: {
+  limit?: number
+  offset?: number
+  user_sub?: string
+  action?: string
+  start_date?: string
+  end_date?: string
+} = {}): Promise<AuditLogsListResponse> {
+  const query = new URLSearchParams()
+  if (params.limit !== undefined) query.set("limit", params.limit.toString())
+  if (params.offset !== undefined) query.set("offset", params.offset.toString())
+  if (params.user_sub) query.set("user_sub", params.user_sub)
+  if (params.action) query.set("action", params.action)
+  if (params.start_date) query.set("start_date", params.start_date)
+  if (params.end_date) query.set("end_date", params.end_date)
+
+  const res = await fetch(`${API_BASE}/admin/audit-logs?${query.toString()}`, {
+    headers: getAuthHeaders(),
+    credentials: "include"
+  })
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}))
+    throw new Error(errorBody.detail || `Error ${res.status}: Fallo al consultar bitácora de auditoría`)
+  }
+
   return res.json()
 }

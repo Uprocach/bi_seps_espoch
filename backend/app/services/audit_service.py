@@ -34,9 +34,10 @@ class AuditService:
         ip_address: str | None = None,
         user_agent: str | None = None
     ) -> dict:
-        """Registra un evento de auditoría de manera no bloqueante con persistencia local inmediata y réplica asíncrona a Supabase."""
+        """Registra un evento de auditoría de manera no bloqueante con persistencia local inmediata (SQLite y JSONL) y réplica asíncrona a Supabase."""
+        iso_now = datetime.now(timezone.utc).isoformat()
         event = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": iso_now,
             "user_sub": user_sub,
             "user_role": user_role,
             "action": action,
@@ -46,14 +47,30 @@ class AuditService:
             "user_agent": user_agent
         }
 
-        # 1. Persistencia local inmediata (sub-milisegundo, garantiza cero pérdida de datos)
+        # 1. Persistencia transaccional en SQLite (users.db montado en volumen Docker - AUD-13)
+        try:
+            from backend.app.services.user_db_service import user_db
+            user_db.insert_audit_log(
+                timestamp=iso_now,
+                user_sub=user_sub,
+                user_role=user_role,
+                action=action,
+                resource=resource,
+                details_json=json.dumps(details or {}, ensure_ascii=False),
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            logger.error(f"Error registrando auditoría en SQLite: {e}")
+
+        # 2. Persistencia local complementaria en archivo JSONL
         try:
             with open(self.local_audit_log, "a", encoding="utf-8") as f:
                 f.write(json.dumps(event, ensure_ascii=False) + "\n")
         except Exception as e:
-            logger.error(f"Error crítico escribiendo log de auditoría local: {e}")
+            logger.error(f"Error crítico escribiendo log de auditoría local JSONL: {e}")
 
-        # 2. Replicación a Supabase en hilo desacoplado (evita agotar el threadpool de FastAPI ante latencias de red)
+        # 3. Replicación a Supabase en hilo desacoplado (evita agotar el threadpool de FastAPI ante latencias de red)
         if self.supabase_url and self.supabase_key:
             def _async_post():
                 try:
@@ -75,6 +92,26 @@ class AuditService:
             threading.Thread(target=_async_post, daemon=True).start()
 
         return event
+
+    def query_events(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        user_sub: str | None = None,
+        action: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None
+    ) -> tuple[list[dict], int]:
+        """Consulta la bitácora de auditoría forense persistida con filtros y paginación (AUD-14)."""
+        from backend.app.services.user_db_service import user_db
+        return user_db.list_audit_logs(
+            limit=limit,
+            offset=offset,
+            user_sub=user_sub,
+            action=action,
+            start_date=start_date,
+            end_date=end_date
+        )
 
 # Singleton del servicio de auditoría
 audit_service = AuditService()

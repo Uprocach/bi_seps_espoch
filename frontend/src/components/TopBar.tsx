@@ -38,6 +38,10 @@ const VIEW_TITLES: Record<ActiveView, { title: string; subtitle: string }> = {
   admin_users: {
     title: "Gestión del Padrón de Usuarios Acreditados",
     subtitle: "Proyecto ESPOCH - DI - 060 • Administración de accesos, roles y contraseñas iniciales"
+  },
+  audit_logs: {
+    title: "Bitácora de Auditoría Forense y Trazabilidad",
+    subtitle: "Proyecto ESPOCH - DI - 060 • Control inmutable de accesos, descargas y eventos normativos"
   }
 }
 
