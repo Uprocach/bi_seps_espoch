@@ -1242,7 +1242,11 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                 </p>
                 <p className="text-base font-bold font-mono text-slate-900 mt-1">
                   {rankingData?.segment1_baseline !== null && rankingData?.segment1_baseline !== undefined
-                    ? `${rankingData.segment1_baseline.toFixed(2)}%`
+                    ? rankingData?.indicator?.unit === "usd"
+                      ? formatCurrency(rankingData.segment1_baseline)
+                      : rankingData?.indicator?.unit === "ratio"
+                      ? rankingData.segment1_baseline.toFixed(2)
+                      : `${rankingData.segment1_baseline.toFixed(2)}%`
                     : "N/D"}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">Referencia de grandes cooperativas</p>
@@ -1256,7 +1260,11 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                 </p>
                 <p className="text-base font-bold font-mono text-slate-900 mt-1">
                   {rankingData?.country_baseline !== null && rankingData?.country_baseline !== undefined
-                    ? `${rankingData.country_baseline.toFixed(2)}%`
+                    ? rankingData?.indicator?.unit === "usd"
+                      ? formatCurrency(rankingData.country_baseline)
+                      : rankingData?.indicator?.unit === "ratio"
+                      ? rankingData.country_baseline.toFixed(2)
+                      : `${rankingData.country_baseline.toFixed(2)}%`
                     : "N/D"}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">Media consolidada país</p>
@@ -1447,10 +1455,18 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                             {assetsFormatted}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                            {row.value.toFixed(2)}%
+                            {rankingData?.indicator?.unit === "usd"
+                              ? formatCurrency(row.value)
+                              : rankingData?.indicator?.unit === "ratio"
+                              ? row.value.toFixed(2)
+                              : `${row.value.toFixed(2)}%`}
                           </td>
                           <td className="py-2.5 px-3 text-center">
-                            {renderTrafficLightBadge(row.camel_evaluation, row.value, "percent")}
+                            {renderTrafficLightBadge(
+                              row.camel_evaluation,
+                              row.value,
+                              rankingData?.indicator?.unit || "percent"
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-xs">
                             {diffCountry !== null && diffCountry !== undefined ? (
@@ -1462,7 +1478,11 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                                     : "text-rose-600 font-semibold"
                                 }
                               >
-                                {isDiffPositive ? `+${diffCountry.toFixed(2)}%` : `${diffCountry.toFixed(2)}%`}
+                                {rankingData?.indicator?.unit === "usd"
+                                  ? `${isDiffPositive ? "+" : ""}${formatCurrency(diffCountry)}`
+                                  : isDiffPositive
+                                  ? `+${diffCountry.toFixed(2)}%`
+                                  : `${diffCountry.toFixed(2)}%`}
                               </span>
                             ) : (
                               "N/D"
@@ -1663,7 +1683,13 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                         {/* Valor Central y Semáforo Principal */}
                         <div className="flex items-baseline justify-between pt-1">
                           <span className="text-2xl font-bold font-mono tracking-tight text-slate-900">
-                            {displayVal !== null ? `${displayVal.toFixed(2)}%` : "N/D"}
+                            {displayVal !== null
+                              ? ind.unit === "usd"
+                                ? formatCurrency(displayVal)
+                                : ind.unit === "ratio"
+                                ? displayVal.toFixed(2)
+                                : `${displayVal.toFixed(2)}%`
+                              : "N/D"}
                           </span>
                           {renderTrafficLightBadge(displayEval, displayVal, ind.unit, "sm")}
                         </div>
@@ -1671,7 +1697,17 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                         {/* Comparativas Directas vs Segmento 1 y vs Media País */}
                         <div className="pt-2 border-t border-slate-100 space-y-1 text-[11px] font-mono text-slate-500">
                           <div className="flex items-center justify-between">
-                            <span>Base Seg 1 ({ind.segment1_baseline !== null ? `${ind.segment1_baseline.toFixed(1)}%` : "-"}):</span>
+                            <span>
+                              Base Seg 1 (
+                              {ind.segment1_baseline !== null
+                                ? ind.unit === "usd"
+                                  ? formatCurrency(ind.segment1_baseline)
+                                  : ind.unit === "ratio"
+                                  ? ind.segment1_baseline.toFixed(1)
+                                  : `${ind.segment1_baseline.toFixed(1)}%`
+                                : "-"}
+                              ):
+                            </span>
                             {diffSeg1 !== null ? (
                               <span
                                 className={
@@ -1681,7 +1717,11 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                                     : "text-rose-600 font-semibold"
                                 }
                               >
-                                {diffSeg1 >= 0 ? `+${diffSeg1.toFixed(2)}%` : `${diffSeg1.toFixed(2)}%`}
+                                {ind.unit === "usd"
+                                  ? `${diffSeg1 >= 0 ? "+" : ""}${formatCurrency(diffSeg1)}`
+                                  : diffSeg1 >= 0
+                                  ? `+${diffSeg1.toFixed(2)}%`
+                                  : `${diffSeg1.toFixed(2)}%`}
                               </span>
                             ) : (
                               <span>-</span>
@@ -1689,7 +1729,17 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                           </div>
 
                           <div className="flex items-center justify-between">
-                            <span>Media País ({ind.country_baseline !== null ? `${ind.country_baseline.toFixed(1)}%` : "-"}):</span>
+                            <span>
+                              Media País (
+                              {ind.country_baseline !== null
+                                ? ind.unit === "usd"
+                                  ? formatCurrency(ind.country_baseline)
+                                  : ind.unit === "ratio"
+                                  ? ind.country_baseline.toFixed(1)
+                                  : `${ind.country_baseline.toFixed(1)}%`
+                                : "-"}
+                              ):
+                            </span>
                             {diffCty !== null ? (
                               <span
                                 className={
@@ -1699,7 +1749,11 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                                     : "text-rose-600 font-semibold"
                                 }
                               >
-                                {diffCty >= 0 ? `+${diffCty.toFixed(2)}%` : `${diffCty.toFixed(2)}%`}
+                                {ind.unit === "usd"
+                                  ? `${diffCty >= 0 ? "+" : ""}${formatCurrency(diffCty)}`
+                                  : diffCty >= 0
+                                  ? `+${diffCty.toFixed(2)}%`
+                                  : `${diffCty.toFixed(2)}%`}
                               </span>
                             ) : (
                               <span>-</span>
@@ -2041,12 +2095,20 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-600">
                             {row.segment1_baseline !== null
-                              ? `${row.segment1_baseline.toFixed(2)}%`
+                              ? row.unit === "usd"
+                                ? formatCurrency(row.segment1_baseline)
+                                : row.unit === "ratio"
+                                ? row.segment1_baseline.toFixed(2)
+                                : `${row.segment1_baseline.toFixed(2)}%`
                               : "N/D"}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-600">
                             {row.country_baseline !== null
-                              ? `${row.country_baseline.toFixed(2)}%`
+                              ? row.unit === "usd"
+                                ? formatCurrency(row.country_baseline)
+                                : row.unit === "ratio"
+                                ? row.country_baseline.toFixed(2)
+                                : `${row.country_baseline.toFixed(2)}%`
                               : "N/D"}
                           </td>
 
