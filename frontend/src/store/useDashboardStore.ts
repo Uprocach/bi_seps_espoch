@@ -74,7 +74,20 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   entityPage: 1,
 
   setActiveView: (view) => set({ activeView: view }),
-  setSelectedDimension: (dim) => set({ selectedDimension: dim }),
+  setSelectedDimension: (dim) => {
+    const dimensionDefaults: Record<IndicatorCategory, string> = {
+      calidad_de_activos: "morosidad_cartera_total",
+      capital: "solvencia_patrimonial",
+      rentabilidad: "roa",
+      liquidez: "liquidez_inmediata",
+      manejo_administrativo: "eficiencia_operativa"
+    }
+    const newIndicator =
+      dim !== "all" && dimensionDefaults[dim]
+        ? dimensionDefaults[dim]
+        : "morosidad_cartera_total"
+    set({ selectedDimension: dim, selectedIndicator: newIndicator })
+  },
   setIsMobileMenuOpen: (open) => set({ isMobileMenuOpen: open }),
   setIsSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed }),
   setSelectedIndicator: (indicator) => set({ selectedIndicator: indicator }),

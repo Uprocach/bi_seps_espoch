@@ -84,7 +84,11 @@ const AppContent: React.FC = () => {
       />
 
       {/* Área Principal de Contenido */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+      <div
+        className={`flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden transition-all duration-300 ease-in-out ${
+          store.isSidebarCollapsed ? "lg:pl-20" : "lg:pl-72"
+        }`}
+      >
         <TopBar
           activeView={store.activeView}
           selectedDimension={store.selectedDimension}
