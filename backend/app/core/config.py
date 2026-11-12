@@ -39,13 +39,16 @@ class Settings:
     ADMIN_FULL_NAME: str = os.getenv("ADMIN_FULL_NAME", "Dennys Rojas")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "dennys.rojas")
     
-    CORS_ORIGINS: list[str] = [
-        origin.strip()
-        for origin in os.getenv(
+    @property
+    def CORS_ORIGINS(self) -> list[str]:
+        raw = os.getenv(
             "CORS_ORIGINS",
             "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
-        ).split(",")
-        if origin.strip()
-    ]
+        )
+        origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        vercel_url = os.getenv("VERCEL_URL")
+        if vercel_url:
+            origins.append(f"https://{vercel_url}")
+        return origins
 
 settings = Settings()

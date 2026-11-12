@@ -15,6 +15,7 @@ def check_csrf_origin(
     origin: str | None,
     referer: str | None,
     client_host: str | None = None,
+    host_header: str | None = None,
     is_internal_test: bool = False
 ) -> bool:
     """Valida la procedencia de la solicitud contra la lista blanca institucional (Mitigación AUD-03)."""
@@ -25,7 +26,11 @@ def check_csrf_origin(
     if settings.COOKIE_NAME not in cookies:
         return True
 
-    allowed_origins = {o.rstrip("/") for o in settings.CORS_ORIGINS}
+    if is_internal_test:
+        return True
+
+    if client_host in ("testclient", "127.0.0.1", "localhost") and not origin and not referer:
+        return True
 
     origin_to_check = None
     if origin:
@@ -34,13 +39,33 @@ def check_csrf_origin(
         parsed = urlparse(referer)
         origin_to_check = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
-    if is_internal_test:
+    if not origin_to_check:
+        return False
+
+    parsed_origin = urlparse(origin_to_check)
+    origin_netloc = parsed_origin.netloc.lower()
+
+    # 1. Comprobación same-origin contra el Host / X-Forwarded-Host del servidor (Vercel)
+    if host_header:
+        clean_host = host_header.strip().lower()
+        if origin_netloc == clean_host or origin_netloc.split(":")[0] == clean_host.split(":")[0]:
+            return True
+
+    # 2. Despliegues en Vercel (*.vercel.app)
+    if origin_netloc.endswith(".vercel.app"):
         return True
 
-    if client_host in ("testclient", "127.0.0.1", "localhost") and not origin and not referer:
+    # 3. Lista blanca institucional de CORS_ORIGINS
+    allowed_origins = {o.rstrip("/") for o in settings.CORS_ORIGINS}
+    if origin_to_check in allowed_origins:
         return True
 
-    return bool(origin_to_check and origin_to_check in allowed_origins)
+    for allowed in allowed_origins:
+        allowed_netloc = urlparse(allowed).netloc.lower()
+        if origin_netloc == allowed_netloc:
+            return True
+
+    return False
 
 class CSRFOriginValidationMiddleware:
     """Mitigación contra Cross-Site Request Forgery (CSRF) para sesiones basadas en HttpOnly Cookies.
@@ -77,6 +102,11 @@ class CSRFOriginValidationMiddleware:
         origin = headers_dict.get(b"origin", b"").decode("latin1") or None
         referer = headers_dict.get(b"referer", b"").decode("latin1") or None
         client_host = scope.get("client", [""])[0] if scope.get("client") else None
+        host_header = (
+            headers_dict.get(b"x-forwarded-host", b"").decode("latin1") or
+            headers_dict.get(b"host", b"").decode("latin1") or
+            None
+        )
         is_internal = headers_dict.get(b"x-internal-test", b"") == b"true"
 
         is_valid = check_csrf_origin(
@@ -85,6 +115,7 @@ class CSRFOriginValidationMiddleware:
             origin=origin,
             referer=referer,
             client_host=client_host,
+            host_header=host_header,
             is_internal_test=is_internal
         )
 
