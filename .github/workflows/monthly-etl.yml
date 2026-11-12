@@ -1,0 +1,63 @@
+name: Monthly SEPS ETL Pipeline & Verification
+
+on:
+  schedule:
+    # Ejecución quincenal en la ventana de publicación SEPS (días 18 y 25 de cada mes a las 03:00 UTC)
+    - cron: '0 3 18,25 * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forzar re-descarga y reconstrucción completa de balances B11 y patrimonio técnico'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  etl-and-verify:
+    name: Crawl SEPS, Rebuild Marts & Verify Integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run SEPS Monthly Pipeline
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            python etl/monthly_pipeline.py --force
+          else
+            python etl/monthly_pipeline.py
+          fi
+
+      - name: Verify Mart Integrity & Mathematical Assertions
+        run: |
+          python etl/test_marts.py
+
+      - name: Commit and Push Updated Parquet Marts
+        run: |
+          if [ -n "$(git status --porcelain data/processed/mart)" ]; then
+            echo "Nuevos cubos Parquet detectados y verificados. Realizando commit institucional..."
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/processed/mart data/interim
+            git commit -m "chore(data): automated monthly SEPS update [skip ci]"
+            git push origin master
+          else
+            echo "No se detectaron cambios en los cubos analíticos. El sistema se encuentra al día."
+          fi

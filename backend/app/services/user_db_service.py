@@ -2,18 +2,57 @@ import sqlite3
 import hashlib
 import hmac
 import secrets
+import logging
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+    from psycopg import IntegrityError as PsycopgIntegrityError
+except ImportError:
+    psycopg = None  # type: ignore
+    dict_row = None  # type: ignore
+    PsycopgIntegrityError = sqlite3.IntegrityError  # type: ignore
+
 from backend.app.core.config import settings
 
-class UserDBService:
-    """Servicio de gestión de usuarios persistente en SQLite con hashing criptográfico PBKDF2-SHA256."""
+logger = logging.getLogger("user_db")
 
-    def __init__(self, db_path: Path | None = None):
+
+class UserDBService:
+    """
+    Servicio de gestión de usuarios y auditoría con persistencia dual:
+    - PostgreSQL gestionado en Supabase cuando settings.DATABASE_URL está configurada.
+    - SQLite transaccional local (data/users.db) como fallback automático para tests y desarrollo offline.
+    """
+
+    def __init__(self, db_path: Path | None = None, database_url: str | None = None):
         self.db_path = db_path or (settings.BASE_DIR / "data" / "users.db")
-        self._ensure_db_dir()
+        raw_url = database_url or settings.DATABASE_URL
+        self.database_url = self._normalize_database_url(raw_url)
+        self.is_postgres = bool(
+            self.database_url and (
+                self.database_url.startswith("postgresql://") or 
+                self.database_url.startswith("postgres://")
+            )
+        )
+
+        if not self.is_postgres:
+            self._ensure_db_dir()
+
         self._init_db()
+
+    @staticmethod
+    def _normalize_database_url(url: str | None) -> str | None:
+        if not url:
+            return None
+        clean = url.strip()
+        if clean.startswith("postgres://"):
+            return "postgresql://" + clean[len("postgres://"):]
+        return clean
 
     def _ensure_db_dir(self):
         try:
@@ -21,11 +60,41 @@ class UserDBService:
         except Exception:
             pass
 
-    def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path), timeout=15.0)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA busy_timeout = 5000;")
-        return conn
+    @contextmanager
+    def _get_connection(self) -> Generator[Any, None, None]:
+        if self.is_postgres:
+            if not psycopg:
+                raise RuntimeError("El paquete psycopg no está instalado para conexión PostgreSQL.")
+            conn = psycopg.connect(self.database_url, row_factory=dict_row)
+            try:
+                with conn:
+                    yield conn
+            finally:
+                conn.close()
+        else:
+            conn = sqlite3.connect(str(self.db_path), timeout=15.0)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA busy_timeout = 5000;")
+            try:
+                with conn:
+                    yield conn
+            finally:
+                conn.close()
+
+    def _prepare_sql(self, sql: str) -> str:
+        if self.is_postgres:
+            return sql.replace("?", "%s")
+        return sql
+
+    def _execute_insert(self, cursor: Any, sql_base: str, params: tuple | list) -> int:
+        if self.is_postgres:
+            sql = self._prepare_sql(sql_base) + " RETURNING id;"
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            return row["id"] if isinstance(row, dict) else row[0]
+        else:
+            cursor.execute(sql_base, params)
+            return cursor.lastrowid  # type: ignore
 
     @staticmethod
     def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
@@ -42,53 +111,85 @@ class UserDBService:
     def _init_db(self):
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            # Optimizaciones de concurrencia y durabilidad (WAL mode - AUD-15)
-            cursor.execute("PRAGMA journal_mode = WAL;")
-            cursor.execute("PRAGMA synchronous = NORMAL;")
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    full_name TEXT NOT NULL,
-                    role TEXT NOT NULL DEFAULT 'investigador',
-                    password_hash TEXT NOT NULL,
-                    salt TEXT NOT NULL,
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    must_change_password INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL,
-                    last_login_at TEXT
-                );
-            """)
+
+            if self.is_postgres:
+                # Esquema PostgreSQL (Supabase)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT UNIQUE NOT NULL,
+                        email TEXT UNIQUE NOT NULL,
+                        full_name TEXT NOT NULL,
+                        role TEXT NOT NULL DEFAULT 'investigador',
+                        password_hash TEXT NOT NULL,
+                        salt TEXT NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        must_change_password INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL,
+                        last_login_at TEXT
+                    );
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS audit_logs (
+                        id SERIAL PRIMARY KEY,
+                        timestamp TEXT NOT NULL,
+                        user_sub TEXT NOT NULL,
+                        user_role TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        resource TEXT NOT NULL,
+                        details_json TEXT NOT NULL DEFAULT '{}',
+                        ip_address TEXT,
+                        user_agent TEXT
+                    );
+                """)
+            else:
+                # Esquema SQLite local con WAL mode (AUD-15)
+                cursor.execute("PRAGMA journal_mode = WAL;")
+                cursor.execute("PRAGMA synchronous = NORMAL;")
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        email TEXT UNIQUE NOT NULL,
+                        full_name TEXT NOT NULL,
+                        role TEXT NOT NULL DEFAULT 'investigador',
+                        password_hash TEXT NOT NULL,
+                        salt TEXT NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        must_change_password INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL,
+                        last_login_at TEXT
+                    );
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS audit_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        user_sub TEXT NOT NULL,
+                        user_role TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        resource TEXT NOT NULL,
+                        details_json TEXT NOT NULL DEFAULT '{}',
+                        ip_address TEXT,
+                        user_agent TEXT
+                    );
+                """)
+
+            # Índices de alto rendimiento comunes a ambos motores
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
-
-            # Bitácora de auditoría forense persistente (AUD-13 y AUD-14)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS audit_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    user_sub TEXT NOT NULL,
-                    user_role TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    resource TEXT NOT NULL,
-                    details_json TEXT NOT NULL DEFAULT '{}',
-                    ip_address TEXT,
-                    user_agent TEXT
-                );
-            """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user_sub ON audit_logs(user_sub);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);")
-            conn.commit()
 
-            # Sembrar usuarios iniciales si la tabla está vacía
-            cursor.execute("SELECT COUNT(*) FROM users;")
-            count = cursor.fetchone()[0]
+            # Sembrar usuarios iniciales si la tabla users está vacía
+            cursor.execute("SELECT COUNT(*) AS cnt FROM users;")
+            row = cursor.fetchone()
+            count = row["cnt"] if isinstance(row, dict) else row[0]
             if count == 0:
-                self._seed_default_users(conn)
+                self._seed_default_users(cursor)
 
-    def _seed_default_users(self, conn: sqlite3.Connection):
+    def _seed_default_users(self, cursor: Any):
         now = datetime.now(timezone.utc).isoformat()
         seeds = [
             (
@@ -116,31 +217,42 @@ class UserDBService:
                 0
             )
         ]
-        cursor = conn.cursor()
-        for username, email, full_name, role, pwd, must_change in seeds:
-            pwd_hash, salt = self.hash_password(pwd)
-            cursor.execute("""
+
+        if self.is_postgres:
+            sql_seed = """
+                INSERT INTO users 
+                (username, email, full_name, role, password_hash, salt, is_active, must_change_password, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)
+                ON CONFLICT (username) DO NOTHING;
+            """
+        else:
+            sql_seed = """
                 INSERT OR IGNORE INTO users 
                 (username, email, full_name, role, password_hash, salt, is_active, must_change_password, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-            """, (username, email, full_name, role, pwd_hash, salt, must_change, now))
-        conn.commit()
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?);
+            """
+
+        for username, email, full_name, role, pwd, must_change in seeds:
+            pwd_hash, salt = self.hash_password(pwd)
+            cursor.execute(sql_seed, (username, email, full_name, role, pwd_hash, salt, must_change, now))
 
     def get_user_by_username_or_email(self, identifier: str) -> dict | None:
         clean = identifier.strip().lower()
+        sql = self._prepare_sql("""
+            SELECT * FROM users 
+            WHERE LOWER(username) = ? OR LOWER(email) = ?;
+        """)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM users 
-                WHERE LOWER(username) = ? OR LOWER(email) = ?;
-            """, (clean, clean))
+            cursor.execute(sql, (clean, clean))
             row = cursor.fetchone()
             return dict(row) if row else None
 
     def get_user_by_id(self, user_id: int) -> dict | None:
+        sql = self._prepare_sql("SELECT * FROM users WHERE id = ?;")
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE id = ?;", (user_id,))
+            cursor.execute(sql, (user_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -164,7 +276,7 @@ class UserDBService:
                 params.append(1 if is_active else 0)
 
             query += " ORDER BY id ASC;"
-            cursor.execute(query, params)
+            cursor.execute(self._prepare_sql(query), params)
             return [dict(row) for row in cursor.fetchall()]
 
     def create_user(
@@ -178,26 +290,32 @@ class UserDBService:
     ) -> dict:
         clean_user = username.strip().lower()
         clean_email = email.strip().lower()
-        # Si no se indica contraseña, por convención institucional se usa el nombre de usuario (nombre.apellido)
         pwd = raw_password.strip() if raw_password and raw_password.strip() else clean_user
         pwd_hash, salt = self.hash_password(pwd)
         now = datetime.now(timezone.utc).isoformat()
 
+        sql_base = """
+            INSERT INTO users 
+            (username, email, full_name, role, password_hash, salt, is_active, must_change_password, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+        """
+        params = (clean_user, clean_email, full_name.strip(), role.strip().lower(), pwd_hash, salt, 1 if must_change_password else 0, now)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO users 
-                (username, email, full_name, role, password_hash, salt, is_active, must_change_password, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?);
-            """, (clean_user, clean_email, full_name.strip(), role.strip().lower(), pwd_hash, salt, 1 if must_change_password else 0, now))
-            user_id = cursor.lastrowid
-            conn.commit()
+            user_id = self._execute_insert(cursor, sql_base, params)
 
-        return self.get_user_by_id(user_id) # type: ignore
+        return self.get_user_by_id(user_id)  # type: ignore
 
     def bulk_import_users(self, items: list[dict]) -> tuple[list[dict], list[str]]:
         created: list[dict] = []
         errors: list[str] = []
+
+        sql_base = """
+            INSERT INTO users 
+            (username, email, full_name, role, password_hash, salt, is_active, must_change_password, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?)
+        """
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -209,7 +327,6 @@ class UserDBService:
                 full_name = (item.get("full_name") or item.get("nombre") or "").strip()
                 role = (item.get("role") or item.get("rol") or "investigador").strip().lower()
 
-                # Inferir username si viene email: ej nombre.apellido@espoch.edu.ec -> nombre.apellido
                 if not raw_user and raw_email:
                     raw_user = raw_email.split("@")[0]
                 elif not raw_email and raw_user:
@@ -219,17 +336,12 @@ class UserDBService:
                     errors.append(f"Fila {idx}: Falta nombre o usuario/correo.")
                     continue
 
-                # Contraseña inicial = nombre.apellido (o personalizada)
                 raw_pwd = (item.get("password") or item.get("clave") or raw_user).strip()
                 pwd_hash, salt = self.hash_password(raw_pwd)
+                params = (raw_user, raw_email, full_name, role, pwd_hash, salt, now)
 
                 try:
-                    cursor.execute("""
-                        INSERT INTO users 
-                        (username, email, full_name, role, password_hash, salt, is_active, must_change_password, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?);
-                    """, (raw_user, raw_email, full_name, role, pwd_hash, salt, now))
-                    uid = cursor.lastrowid
+                    uid = self._execute_insert(cursor, sql_base, params)
                     created.append({
                         "id": uid,
                         "username": raw_user,
@@ -238,24 +350,22 @@ class UserDBService:
                         "role": role,
                         "initial_password": raw_pwd
                     })
-                except sqlite3.IntegrityError:
+                except (sqlite3.IntegrityError, PsycopgIntegrityError):
                     errors.append(f"Fila {idx} ({raw_user}): El usuario o correo ya está registrado.")
                     continue
-
-            conn.commit()
 
         return created, errors
 
     def update_password(self, user_id: int, new_password: str) -> bool:
         pwd_hash, salt = self.hash_password(new_password.strip())
+        sql = self._prepare_sql("""
+            UPDATE users 
+            SET password_hash = ?, salt = ?, must_change_password = 0 
+            WHERE id = ?;
+        """)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE users 
-                SET password_hash = ?, salt = ?, must_change_password = 0 
-                WHERE id = ?;
-            """, (pwd_hash, salt, user_id))
-            conn.commit()
+            cursor.execute(sql, (pwd_hash, salt, user_id))
             return cursor.rowcount > 0
 
     def reset_password(self, user_id: int, new_temp_password: str | None = None) -> tuple[bool, str]:
@@ -264,29 +374,29 @@ class UserDBService:
             return False, ""
         temp_pwd = new_temp_password.strip() if new_temp_password and new_temp_password.strip() else user["username"]
         pwd_hash, salt = self.hash_password(temp_pwd)
+        sql = self._prepare_sql("""
+            UPDATE users 
+            SET password_hash = ?, salt = ?, must_change_password = 1 
+            WHERE id = ?;
+        """)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE users 
-                SET password_hash = ?, salt = ?, must_change_password = 1 
-                WHERE id = ?;
-            """, (pwd_hash, salt, user_id))
-            conn.commit()
+            cursor.execute(sql, (pwd_hash, salt, user_id))
             return True, temp_pwd
 
     def toggle_user_active(self, user_id: int, is_active: bool) -> bool:
+        sql = self._prepare_sql("UPDATE users SET is_active = ? WHERE id = ?;")
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE users SET is_active = ? WHERE id = ?;", (1 if is_active else 0, user_id))
-            conn.commit()
+            cursor.execute(sql, (1 if is_active else 0, user_id))
             return cursor.rowcount > 0
 
     def record_login(self, user_id: int):
         now = datetime.now(timezone.utc).isoformat()
+        sql = self._prepare_sql("UPDATE users SET last_login_at = ? WHERE id = ?;")
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE users SET last_login_at = ? WHERE id = ?;", (now, user_id))
-            conn.commit()
+            cursor.execute(sql, (now, user_id))
 
     def insert_audit_log(
         self,
@@ -299,16 +409,16 @@ class UserDBService:
         ip_address: str | None = None,
         user_agent: str | None = None
     ) -> int:
+        sql_base = """
+            INSERT INTO audit_logs 
+            (timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        params = (timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO audit_logs 
-                (timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-            """, (timestamp, user_sub, user_role, action, resource, details_json, ip_address, user_agent))
-            log_id = cursor.lastrowid
-            conn.commit()
-            return log_id # type: ignore
+            log_id = self._execute_insert(cursor, sql_base, params)
+            return log_id
 
     def list_audit_logs(
         self,
@@ -337,7 +447,6 @@ class UserDBService:
                 params.append(start_date.strip())
 
             if end_date:
-                # Si viene YYYY-MM-DD agregamos fin del día
                 val = end_date.strip()
                 if len(val) == 10:
                     val += "T23:59:59"
@@ -347,8 +456,10 @@ class UserDBService:
             where_str = " AND ".join(where_clauses)
 
             # Contar total de registros filtrados
-            cursor.execute(f"SELECT COUNT(*) FROM audit_logs WHERE {where_str};", params)
-            total = cursor.fetchone()[0]
+            count_sql = self._prepare_sql(f"SELECT COUNT(*) AS cnt FROM audit_logs WHERE {where_str};")
+            cursor.execute(count_sql, params)
+            row = cursor.fetchone()
+            total = row["cnt"] if isinstance(row, dict) else row[0]
 
             # Consultar página con orden cronológico descendente
             query = f"""
@@ -358,8 +469,9 @@ class UserDBService:
                 ORDER BY id DESC
                 LIMIT ? OFFSET ?;
             """
-            cursor.execute(query, params + [limit, offset])
+            cursor.execute(self._prepare_sql(query), params + [limit, offset])
             rows = cursor.fetchall()
             return [dict(r) for r in rows], total
+
 
 user_db = UserDBService()
