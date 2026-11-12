@@ -39,6 +39,8 @@ tags:
     description: Bitácora de auditoría forense y control de acceso (Compliance y RegTech).
   - name: Admin
     description: Gestión administrativa, gobernanza del sistema y mantenimiento del pipeline de datos.
+  - name: Supervision
+    description: Herramientas analíticas institucionales acreditadas (Benchmarking CAMEL y exportación).
 
 paths:
   /api/v1/metadata/filters:
@@ -655,6 +657,136 @@ paths:
                     message: Sistema sincronizado. No se detectaron boletines pendientes.
                     last_sync_timestamp: '2026-11-11T12:00:00Z'
                     error_message: ''
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/supervision/benchmarking/compare:
+    post:
+      tags: [Supervision]
+      operationId: compareBenchmarkingSupervision
+      summary: Motor Analítico de Benchmarking Multi-Entidad
+      description: |
+        Contrasta hasta 5 cooperativas supervisadas simultáneamente contra las líneas base del Segmento 1 y la media nacional en tiempo real con semáforo regulatorio CAMEL. Reservado para perfiles institucionales acreditados.
+      requestBody:
+        required: true
+        description: Parámetros de entidades, rango de periodos y dimensión CAMEL opcional.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchmarkingCompareRequest'
+            examples:
+              default:
+                summary: Comparación de 2 cooperativas
+                value:
+                  entity_ids: ['0190155722001', '0190115798001']
+                  start_date: '2024-01'
+                  end_date: '2025-12'
+                  camel_dimension: calidad_de_activos
+      responses:
+        '200':
+          description: Matriz comparativa y series temporales con semáforo normativo SEPS v3.0.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkingCompareResponse'
+              examples:
+                default:
+                  summary: Ejemplo de respuesta de benchmarking
+                  value:
+                    entities:
+                      - ruc: '0190155722001'
+                        razon_social: COOPERATIVA DE AHORRO Y CREDITO JARDIN AZUAYO
+                        entity_type: COOPERATIVA
+                        segment: SEGMENTO_1
+                        first_period: '2024-01'
+                        last_period: '2025-12'
+                        is_active: true
+                    start_date: '2024-01'
+                    end_date: '2025-12'
+                    camel_dimension: calidad_de_activos
+                    indicators: []
+                    time_series: {}
+                    total_indicators: 0
+                    generated_at: '2026-11-12T12:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/supervision/export/csv:
+    post:
+      tags: [Supervision]
+      operationId: exportSupervisionCsv
+      summary: Exportación y streaming de microdatos en formato CSV
+      description: |
+        Genera y transmite en streaming el archivo CSV granular de indicadores con evaluación normativa de semáforo CAMEL y codificación UTF-8 BOM para apertura nativa en Excel.
+      requestBody:
+        required: true
+        description: Parámetros de exportación de entidades y fechas.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+            examples:
+              default:
+                summary: Exportación de cooperativas
+                value:
+                  entity_ids: ['0190155722001']
+                  start_date: '2024-01'
+                  end_date: '2025-12'
+      responses:
+        '200':
+          description: Archivo CSV generado en streaming.
+          content:
+            text/csv:
+              schema:
+                type: string
+                description: Contenido textual CSV con UTF-8 BOM.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/supervision/export/excel:
+    post:
+      tags: [Supervision]
+      operationId: exportSupervisionExcel
+      summary: Exportación de reporte ejecutivo multi-pestaña en Excel
+      description: |
+        Genera un libro Microsoft Excel (.xlsx) con estilos institucionales que incluye resumen de benchmarking con semáforos, series históricas completas y catálogo metodológico SEPS. Exclusivo para roles `auditor` y `administrador`.
+      requestBody:
+        required: true
+        description: Parámetros de exportación en Excel.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+            examples:
+              default:
+                summary: Reporte Excel para auditoría
+                value:
+                  entity_ids: ['0190155722001']
+                  start_date: '2024-01'
+                  end_date: '2025-12'
+      responses:
+        '200':
+          description: Archivo binario Excel (.xlsx) generado.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+                description: Contenido binario del libro Excel.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1388,3 +1520,215 @@ components:
           nullable: true
           description: Detalle del error si la tarea falló.
           example: Ninguno
+
+    BenchmarkingCompareRequest:
+      type: object
+      description: Solicitud de comparación analítica multi-entidad CAMEL.
+      required: [entity_ids, start_date, end_date]
+      properties:
+        entity_ids:
+          type: array
+          description: Lista de hasta 5 RUCs de cooperativas a contrastar.
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/Ruc'
+          example: ['0190155722001', '0190115798001']
+        start_date:
+          type: string
+          description: Periodo mensual inicial (YYYY-MM).
+          pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+          example: '2024-01'
+        end_date:
+          type: string
+          description: Periodo mensual final (YYYY-MM).
+          pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+          example: '2025-12'
+        camel_dimension:
+          type: string
+          nullable: true
+          description: Dimensión CAMEL opcional para acotar indicadores.
+          example: calidad_de_activos
+
+    CamelEvaluation:
+      type: object
+      description: Evaluación regulatoria de semáforo normativo SEPS v3.0.
+      required: [status, message, value]
+      properties:
+        status:
+          type: string
+          enum: [GREEN, YELLOW, RED]
+          description: Estado del semáforo normativo.
+          example: GREEN
+        value:
+          type: number
+          nullable: true
+          description: Valor numérico evaluado.
+          example: 3.45
+        normative_reference:
+          type: string
+          nullable: true
+          description: Referencia a la resolución o norma SEPS.
+          example: SEPS v3.0
+        message:
+          type: string
+          description: Mensaje interpretativo prudencial.
+          example: Nivel óptimo en rango normativo.
+        polarity:
+          type: string
+          enum: [higher_is_better, lower_is_better, neutral]
+          description: Polaridad aplicada.
+          example: lower_is_better
+        threshold:
+          type: object
+          description: Umbrales normativos aplicados.
+
+    BenchmarkingIndicatorRow:
+      type: object
+      description: Fila de indicador comparativo con líneas base y semáforo regulatorio.
+      required: [indicator_id, indicator_name, dimension, unit, polarity, entity_values, entity_evaluations, segment1_baseline, country_baseline]
+      properties:
+        indicator_id:
+          type: string
+          description: Identificador único del indicador normativo.
+          example: morosidad_cartera_total
+        indicator_name:
+          type: string
+          description: Nombre descriptivo del indicador financiero.
+          example: Morosidad de la Cartera Total
+        dimension:
+          type: string
+          description: Dimensión metodológica CAMEL.
+          example: calidad_de_activos
+        unit:
+          type: string
+          description: Unidad de medida del indicador (percent, ratio, currency).
+          example: percent
+        polarity:
+          type: string
+          description: Polaridad normativa (higher_is_better, lower_is_better, neutral).
+          example: lower_is_better
+        seps_ficha_number:
+          type: string
+          nullable: true
+          description: Número oficial de ficha metodológica SEPS.
+          example: '18'
+        entity_values:
+          type: object
+          description: Mapa de RUC a valor numérico reciente de la cooperativa.
+          additionalProperties:
+            type: number
+            nullable: true
+        entity_evaluations:
+          type: object
+          description: Mapa de RUC a evaluación de semáforo regulatorio CAMEL.
+          additionalProperties:
+            $ref: '#/components/schemas/CamelEvaluation'
+        segment1_baseline:
+          type: number
+          nullable: true
+          description: Valor de referencia promedio del Segmento 1 en el periodo de corte.
+          example: 4.15
+        country_baseline:
+          type: number
+          nullable: true
+          description: Valor promedio del sector a nivel nacional en el periodo de corte.
+          example: 5.20
+
+    BenchmarkingSeriesPoint:
+      type: object
+      description: Punto mensual de serie de tiempo comparativa con líneas base.
+      required: [period, entity_values, segment1_baseline, country_baseline]
+      properties:
+        period:
+          type: string
+          description: Periodo contable mensual (YYYY-MM).
+          example: '2025-06'
+        entity_values:
+          type: object
+          description: Valores numéricos de las cooperativas en este periodo.
+          additionalProperties:
+            type: number
+            nullable: true
+        segment1_baseline:
+          type: number
+          nullable: true
+          description: Valor agregado del Segmento 1 en este periodo.
+          example: 4.10
+        country_baseline:
+          type: number
+          nullable: true
+          description: Valor agregado nacional en este periodo.
+          example: 5.15
+
+    BenchmarkingCompareResponse:
+      type: object
+      description: Respuesta analítica consolidada de benchmarking multi-entidad CAMEL.
+      required: [entities, start_date, end_date, indicators, time_series, total_indicators, generated_at]
+      properties:
+        entities:
+          type: array
+          description: Metadatos de las cooperativas contrastadas.
+          items:
+            $ref: '#/components/schemas/EntitySummary'
+        start_date:
+          type: string
+          description: Periodo inicial analizado (YYYY-MM).
+          example: '2024-01'
+        end_date:
+          type: string
+          description: Periodo final analizado (YYYY-MM).
+          example: '2025-12'
+        camel_dimension:
+          type: string
+          nullable: true
+          description: Dimensión CAMEL filtrada si aplica.
+          example: calidad_de_activos
+        indicators:
+          type: array
+          description: Lista de indicadores analizados con semáforo y baselines.
+          items:
+            $ref: '#/components/schemas/BenchmarkingIndicatorRow'
+        time_series:
+          type: object
+          description: Series temporales mensuales agrupadas por indicador.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/BenchmarkingSeriesPoint'
+        total_indicators:
+          type: integer
+          description: Total de indicadores incluidos en la comparativa.
+          example: 24
+        generated_at:
+          type: string
+          description: Marca temporal ISO 8601 de generación del reporte.
+          example: '2026-11-12T12:00:00Z'
+
+    ExportRequest:
+      type: object
+      description: Solicitud de exportación masiva de microdatos en streaming CSV o Excel.
+      required: [entity_ids, start_date, end_date]
+      properties:
+        entity_ids:
+          type: array
+          description: Lista de RUCs de cooperativas a exportar.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Ruc'
+          example: ['0190155722001']
+        start_date:
+          type: string
+          description: Periodo mensual inicial (YYYY-MM).
+          pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+          example: '2024-01'
+        end_date:
+          type: string
+          description: Periodo mensual final (YYYY-MM).
+          pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+          example: '2025-12'
+        camel_dimension:
+          type: string
+          nullable: true
+          description: Dimensión CAMEL opcional para filtrar datos.
+          example: calidad_de_activos

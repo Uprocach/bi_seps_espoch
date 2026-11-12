@@ -84,7 +84,8 @@ class SyncManager:
         iso_start = datetime.now(timezone.utc).isoformat()
         try:
             from etl.seps_crawler import seps_crawler
-            from etl.monthly_pipeline import validate_mart_dir
+            from etl.monthly_pipeline import verify_mart_integrity
+            from etl.build_marts import build_marts
 
             # 1. Crawler Web SEPS
             def crawler_cb(stage: str, percent: int, msg: str):
@@ -111,21 +112,20 @@ class SyncManager:
                 )
                 return
 
-            # 2. Construcción en mart_staging
+            # 2. Construcción en mart_staging (Parámetro explícito sin mutar entorno)
             self._update_progress("extracting", 65, "Construyendo cubos analíticos en mart_staging...")
             staging_dir = settings.DATA_MART_DIR.parent / "mart_staging"
             staging_dir.mkdir(parents=True, exist_ok=True)
 
-            os.environ["MART_DIR"] = str(staging_dir)
-            from etl.build_marts import build_marts
-            build_marts()
+            build_marts(target_dir=staging_dir)
 
-            # 3. Gatekeeper Validator
+            # 3. Gatekeeper Validator (Función pura y determinista)
             self._update_progress("validating", 85, "Ejecutando validaciones matemáticas y de integridad...")
-            is_valid = validate_mart_dir(staging_dir)
+            val_report = verify_mart_integrity(staging_dir)
 
-            if not is_valid:
-                raise RuntimeError("El Data Mart en mart_staging no superó el 100% de los controles de integridad matemática.")
+            if not val_report["is_valid"]:
+                errors_str = "; ".join(val_report.get("errors", []))
+                raise RuntimeError(f"El Data Mart en mart_staging falló los controles de integridad: {errors_str}")
 
             # 4. Atomic Switch a producción
             self._update_progress("validating", 95, "Ejecutando reemplazo atómico Zero-Downtime a producción...")
@@ -152,6 +152,7 @@ class SyncManager:
                 details={
                     "period": detected_period,
                     "switch_record": switch_record,
+                    "validation_report": val_report,
                     "updated_files": crawler_result.get("updated_files", [])
                 }
             )

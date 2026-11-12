@@ -94,6 +94,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/pipeline-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar estado operativo del pipeline y Data Marts activos
+         * @description Retorna el estado operativo del motor analítico DuckDB, versión del Data Mart activo, fecha de corte contable, periodos cubiertos y disponibilidad de datos en staging. Exclusivo para roles `auditor` y `administrador`.
+         */
+        get: operations["getPipelineStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pipeline-sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disparar sincronización automatizada con el portal SEPS
+         * @description Inicia la verificación y descarga desatendida de nuevos boletines contables B11 desde el portal oficial de estadísticas de la SEPS. Exclusivo para rol `administrador`.
+         */
+        post: operations["triggerPipelineSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pipeline-sync-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar estado de la tarea de sincronización web SEPS
+         * @description Retorna el avance y estado en vivo de la sincronización con el portal de la SEPS. Exclusivo para roles `auditor` y `administrador`.
+         */
+        get: operations["getPipelineSyncStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/supervision/benchmarking/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Motor Analítico de Benchmarking Multi-Entidad
+         * @description Contrasta hasta 5 cooperativas supervisadas simultáneamente contra las líneas base del Segmento 1 y la media nacional en tiempo real con semáforo regulatorio CAMEL. Reservado para perfiles institucionales acreditados.
+         */
+        post: operations["compareBenchmarkingSupervision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/supervision/export/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exportación y streaming de microdatos en formato CSV
+         * @description Genera y transmite en streaming el archivo CSV granular de indicadores con evaluación normativa de semáforo CAMEL y codificación UTF-8 BOM para apertura nativa en Excel.
+         */
+        post: operations["exportSupervisionCsv"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/supervision/export/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exportación de reporte ejecutivo multi-pestaña en Excel
+         * @description Genera un libro Microsoft Excel (.xlsx) con estilos institucionales que incluye resumen de benchmarking con semáforos, series históricas completas y catálogo metodológico SEPS. Exclusivo para roles `auditor` y `administrador`.
+         */
+        post: operations["exportSupervisionExcel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -406,6 +526,287 @@ export interface components {
             /** @example 0 */
             offset: number;
         };
+        /** @description Esquema de respuesta para el estado operativo del pipeline y los cubos Parquet del Data Mart. */
+        PipelineStatusResponse: {
+            /**
+             * @description Estado general del Data Mart (active, updating, error).
+             * @example active
+             */
+            status: string;
+            /**
+             * @description Ruta del directorio activo de datos Parquet.
+             * @example data/processed/mart
+             */
+            active_mart_dir: string;
+            /**
+             * @description Fecha de corte del último periodo procesado (YYYY-MM-DD).
+             * @example 2025-12-31
+             */
+            data_as_of: string;
+            /**
+             * @description Último periodo contable mensual disponible en el cubo (YYYY-MM).
+             * @example 2025-12
+             */
+            latest_period: string;
+            /**
+             * @description Total de periodos mensuales procesados en el histórico.
+             * @example 96
+             */
+            periods_count: number;
+            /**
+             * @description Total de cooperativas supervisadas indexadas.
+             * @example 229
+             */
+            entities_count: number;
+            /**
+             * @description Indica si existe un conjunto de datos en staging validado y listo para switch.
+             * @example false
+             */
+            staging_ready: boolean;
+            /**
+             * @description Marca temporal ISO 8601 del último reemplazo atómico realizado.
+             * @example 2026-11-11T10:00:00Z
+             */
+            last_switch_timestamp?: string | null;
+        };
+        /** @description Solicitud de sincronización con el portal web de estadísticas de la SEPS. */
+        PipelineSyncRequest: {
+            /**
+             * @description Forzar reprocesamiento incluso si el periodo ya existe en el histórico.
+             * @example false
+             */
+            force?: boolean;
+            /**
+             * @description Solo verificar disponibilidad sin descargar ni alterar datos.
+             * @example false
+             */
+            dry_run?: boolean;
+        };
+        /** @description Estado de la tarea de sincronización web y descarga de boletines SEPS. */
+        PipelineSyncStatusResponse: {
+            /**
+             * @description Estado de la sincronización (idle, downloading, extracting, validating, success, failed).
+             * @example success
+             */
+            status: string;
+            /**
+             * @description Porcentaje de avance de la tarea en curso (0-100).
+             * @example 100
+             */
+            progress_percent: number;
+            /**
+             * @description Periodo contable más reciente detectado en el portal SEPS (YYYY-MM).
+             * @example 2026-01
+             */
+            detected_period?: string | null;
+            /**
+             * @description Mensaje descriptivo del estado actual.
+             * @example Sincronización completada exitosamente.
+             */
+            message: string;
+            /**
+             * @description Marca temporal ISO 8601 de la última ejecución.
+             * @example 2026-11-11T12:00:00Z
+             */
+            last_sync_timestamp?: string | null;
+            /**
+             * @description Detalle del error si la tarea falló.
+             * @example Ninguno
+             */
+            error_message?: string | null;
+        };
+        /** @description Solicitud de comparación analítica multi-entidad CAMEL. */
+        BenchmarkingCompareRequest: {
+            /**
+             * @description Lista de hasta 5 RUCs de cooperativas a contrastar.
+             * @example [
+             *       "0190155722001",
+             *       "0190115798001"
+             *     ]
+             */
+            entity_ids: components["schemas"]["Ruc"][];
+            /**
+             * @description Periodo mensual inicial (YYYY-MM).
+             * @example 2024-01
+             */
+            start_date: string;
+            /**
+             * @description Periodo mensual final (YYYY-MM).
+             * @example 2025-12
+             */
+            end_date: string;
+            /**
+             * @description Dimensión CAMEL opcional para acotar indicadores.
+             * @example calidad_de_activos
+             */
+            camel_dimension?: string | null;
+        };
+        /** @description Evaluación regulatoria de semáforo normativo SEPS v3.0. */
+        CamelEvaluation: {
+            /**
+             * @description Estado del semáforo normativo.
+             * @example GREEN
+             * @enum {string}
+             */
+            status: "GREEN" | "YELLOW" | "RED";
+            /**
+             * @description Valor numérico evaluado.
+             * @example 3.45
+             */
+            value: number | null;
+            /**
+             * @description Referencia a la resolución o norma SEPS.
+             * @example SEPS v3.0
+             */
+            normative_reference?: string | null;
+            /**
+             * @description Mensaje interpretativo prudencial.
+             * @example Nivel óptimo en rango normativo.
+             */
+            message: string;
+            /**
+             * @description Polaridad aplicada.
+             * @example lower_is_better
+             * @enum {string}
+             */
+            polarity?: "higher_is_better" | "lower_is_better" | "neutral";
+            /** @description Umbrales normativos aplicados. */
+            threshold?: Record<string, never>;
+        };
+        /** @description Fila de indicador comparativo con líneas base y semáforo regulatorio. */
+        BenchmarkingIndicatorRow: {
+            /**
+             * @description Identificador único del indicador normativo.
+             * @example morosidad_cartera_total
+             */
+            indicator_id: string;
+            /**
+             * @description Nombre descriptivo del indicador financiero.
+             * @example Morosidad de la Cartera Total
+             */
+            indicator_name: string;
+            /**
+             * @description Dimensión metodológica CAMEL.
+             * @example calidad_de_activos
+             */
+            dimension: string;
+            /**
+             * @description Unidad de medida del indicador (percent, ratio, currency).
+             * @example percent
+             */
+            unit: string;
+            /**
+             * @description Polaridad normativa (higher_is_better, lower_is_better, neutral).
+             * @example lower_is_better
+             */
+            polarity: string;
+            /**
+             * @description Número oficial de ficha metodológica SEPS.
+             * @example 18
+             */
+            seps_ficha_number?: string | null;
+            /** @description Mapa de RUC a valor numérico reciente de la cooperativa. */
+            entity_values: {
+                [key: string]: number | null;
+            };
+            /** @description Mapa de RUC a evaluación de semáforo regulatorio CAMEL. */
+            entity_evaluations: {
+                [key: string]: components["schemas"]["CamelEvaluation"];
+            };
+            /**
+             * @description Valor de referencia promedio del Segmento 1 en el periodo de corte.
+             * @example 4.15
+             */
+            segment1_baseline: number | null;
+            /**
+             * @description Valor promedio del sector a nivel nacional en el periodo de corte.
+             * @example 5.2
+             */
+            country_baseline: number | null;
+        };
+        /** @description Punto mensual de serie de tiempo comparativa con líneas base. */
+        BenchmarkingSeriesPoint: {
+            /**
+             * @description Periodo contable mensual (YYYY-MM).
+             * @example 2025-06
+             */
+            period: string;
+            /** @description Valores numéricos de las cooperativas en este periodo. */
+            entity_values: {
+                [key: string]: number | null;
+            };
+            /**
+             * @description Valor agregado del Segmento 1 en este periodo.
+             * @example 4.1
+             */
+            segment1_baseline: number | null;
+            /**
+             * @description Valor agregado nacional en este periodo.
+             * @example 5.15
+             */
+            country_baseline: number | null;
+        };
+        /** @description Respuesta analítica consolidada de benchmarking multi-entidad CAMEL. */
+        BenchmarkingCompareResponse: {
+            /** @description Metadatos de las cooperativas contrastadas. */
+            entities: components["schemas"]["EntitySummary"][];
+            /**
+             * @description Periodo inicial analizado (YYYY-MM).
+             * @example 2024-01
+             */
+            start_date: string;
+            /**
+             * @description Periodo final analizado (YYYY-MM).
+             * @example 2025-12
+             */
+            end_date: string;
+            /**
+             * @description Dimensión CAMEL filtrada si aplica.
+             * @example calidad_de_activos
+             */
+            camel_dimension?: string | null;
+            /** @description Lista de indicadores analizados con semáforo y baselines. */
+            indicators: components["schemas"]["BenchmarkingIndicatorRow"][];
+            /** @description Series temporales mensuales agrupadas por indicador. */
+            time_series: {
+                [key: string]: components["schemas"]["BenchmarkingSeriesPoint"][];
+            };
+            /**
+             * @description Total de indicadores incluidos en la comparativa.
+             * @example 24
+             */
+            total_indicators: number;
+            /**
+             * @description Marca temporal ISO 8601 de generación del reporte.
+             * @example 2026-11-12T12:00:00Z
+             */
+            generated_at: string;
+        };
+        /** @description Solicitud de exportación masiva de microdatos en streaming CSV o Excel. */
+        ExportRequest: {
+            /**
+             * @description Lista de RUCs de cooperativas a exportar.
+             * @example [
+             *       "0190155722001"
+             *     ]
+             */
+            entity_ids: components["schemas"]["Ruc"][];
+            /**
+             * @description Periodo mensual inicial (YYYY-MM).
+             * @example 2024-01
+             */
+            start_date: string;
+            /**
+             * @description Periodo mensual final (YYYY-MM).
+             * @example 2025-12
+             */
+            end_date: string;
+            /**
+             * @description Dimensión CAMEL opcional para filtrar datos.
+             * @example calidad_de_activos
+             */
+            camel_dimension?: string | null;
+        };
     };
     responses: {
         /** @description Solicitud mal formada (p. ej. parámetro con formato inválido). */
@@ -610,6 +1011,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogsListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPipelineStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estado operativo y de integridad del pipeline analítico. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineStatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    triggerPipelineSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Parámetros opcionales para la sincronización web. */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PipelineSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description Resultado de la sincronización en modo directo o simulado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineSyncStatusResponse"];
+                };
+            };
+            /** @description Tarea de sincronización aceptada y en ejecución en segundo plano. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineSyncStatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPipelineSyncStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estado en vivo del proceso de sincronización web. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineSyncStatusResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    compareBenchmarkingSupervision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Parámetros de entidades, rango de periodos y dimensión CAMEL opcional. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BenchmarkingCompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Matriz comparativa y series temporales con semáforo normativo SEPS v3.0. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchmarkingCompareResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    exportSupervisionCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Parámetros de exportación de entidades y fechas. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Archivo CSV generado en streaming. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    exportSupervisionExcel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Parámetros de exportación en Excel. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Archivo binario Excel (.xlsx) generado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

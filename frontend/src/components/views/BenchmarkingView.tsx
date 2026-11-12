@@ -64,9 +64,12 @@ import {
 import { useAuthStore } from "@/store/useAuthStore"
 import { formatCoopName } from "@/lib/utils"
 
+import { useDashboardStore } from "@/store/useDashboardStore"
+import { useMetadataFiltersQuery, useEntitiesQuery } from "@/hooks/useIndicatorsQueries"
+
 interface BenchmarkingProViewProps {
-  metadata: FiltersMetadata | null
-  entities: EntitySummary[]
+  metadata?: FiltersMetadata | null
+  entities?: EntitySummary[]
   initialSelectedRucs?: string[]
 }
 
@@ -90,14 +93,14 @@ const ENTITY_PALETTE = [
   "#E11D48"  // Carmesí (Entidad 5)
 ]
 
-export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = ({
-  metadata,
-  entities,
-  initialSelectedRucs = [
-    "0190155722001", // Jardín Azuayo
-    "0190115798001"  // JEP
-  ]
-}) => {
+export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) => {
+  const store = useDashboardStore()
+  const { data: metaQuery } = useMetadataFiltersQuery()
+  const { data: entitiesQuery } = useEntitiesQuery({ pageSize: 100 })
+
+  const metadata = props.metadata !== undefined ? props.metadata : (metaQuery || null)
+  const entities = props.entities !== undefined ? props.entities : (entitiesQuery?.data || [])
+  const initialSelectedRucs = props.initialSelectedRucs ?? store.selectedRucs
   const { user } = useAuthStore()
 
   // Selección de Entidades para Benchmarking (1 a 5 máximo)
@@ -149,10 +152,10 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = ({
     staleTime: 30 * 60 * 1000
   })
 
-  const fullEntityCatalog = useMemo(() => {
-    return allEntitiesResp?.data && allEntitiesResp.data.length > 0
+  const fullEntityCatalog: EntitySummary[] = useMemo(() => {
+    return (allEntitiesResp?.data && allEntitiesResp.data.length > 0
       ? allEntitiesResp.data
-      : entities
+      : entities) || []
   }, [allEntitiesResp, entities])
 
   // Conteos exactos por segmento del catálogo nacional
@@ -1339,7 +1342,7 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    rankingData?.ranking.map((row) => {
+                    rankingData?.ranking.map((row: any) => {
                       const isSelected = selectedRucs.includes(row.ruc)
                       const cleanName = formatCoopName(row.razon_social)
                       const segBadge =
@@ -2060,4 +2063,6 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = ({
     </div>
   )
 }
-export default BenchmarkingProView
+export const BenchmarkingView = BenchmarkingProView
+export type BenchmarkingViewProps = BenchmarkingProViewProps
+export default BenchmarkingView

@@ -15,18 +15,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import type { UserRole } from "@/components/Sidebar"
+import { useDashboardStore } from "@/store/useDashboardStore"
+import { useAuthStore } from "@/store/useAuthStore"
 
 interface CatalogViewProps {
-  userRole: UserRole
-  onSelectAndGraph: (indicatorId: string) => void
-  onUnlockAccredited: () => void
+  userRole?: UserRole
+  onSelectAndGraph?: (indicatorId: string) => void
+  onUnlockAccredited?: () => void
 }
 
-export const CatalogView: React.FC<CatalogViewProps> = ({
-  userRole,
-  onSelectAndGraph,
-  onUnlockAccredited
-}) => {
+export const CatalogView: React.FC<CatalogViewProps> = (props) => {
+  const store = useDashboardStore()
+  const { isAuthenticated, openLoginModal } = useAuthStore()
+
+  const userRole = props.userRole ?? (isAuthenticated ? "accredited" : "public")
+  const onSelectAndGraph = props.onSelectAndGraph ?? ((id: string) => {
+    store.setSelectedIndicator(id)
+    store.setActiveView("dashboard")
+  })
+  const onUnlockAccredited = props.onUnlockAccredited ?? openLoginModal
+
   const isAccredited = userRole === "accredited"
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all")

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useEffect } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Sidebar, type ActiveView, type UserRole } from "@/components/Sidebar"
+import { Sidebar, type UserRole } from "@/components/Sidebar"
 import { TopBar } from "@/components/TopBar"
 import { DashboardView } from "@/components/views/DashboardView"
-import { BenchmarkingProView } from "@/components/pro/BenchmarkingProView"
+import { BenchmarkingView } from "@/components/views/BenchmarkingView"
 import { CatalogView } from "@/components/views/CatalogView"
 import { EntitiesView } from "@/components/views/EntitiesView"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
@@ -12,20 +12,10 @@ import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal"
 import { AdminUsersView } from "@/components/views/AdminUsersView"
 import { AuditLogsView } from "@/components/views/AuditLogsView"
 import { useAuthStore } from "@/store/useAuthStore"
-import {
-  fetchMetadataFilters,
-  fetchEntities,
-  fetchIndicatorSeries,
-  type FiltersMetadata,
-  type EntitySummary,
-  type IndicatorSeriesResponse,
-  type AggregationLevel,
-  type SegmentCode
-} from "@/services/apiClient"
-import { exportToCsv } from "@/lib/exportUtils"
-import type { IndicatorCategory } from "@/data/extendedCatalog"
+import { useDashboardStore } from "@/store/useDashboardStore"
+import { useMetadataFiltersQuery, useEntitiesQuery } from "@/hooks/useIndicatorsQueries"
 
-// Instancia singleton de TanStack Query Client
+// Singleton de TanStack Query Client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,202 +27,31 @@ const queryClient = new QueryClient({
 })
 
 const AppContent: React.FC = () => {
-  // Store de Autenticación Institucional (Zustand)
   const { user, isAuthenticated, checkAuth, openLoginModal, logout } = useAuthStore()
+  const store = useDashboardStore()
 
-  // Estado de Navegación y Perfil de Acceso
-  const [activeView, setActiveView] = useState<ActiveView>("dashboard")
-  const [selectedDimension, setSelectedDimension] = useState<"all" | IndicatorCategory>("all")
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  // Queries reactivas globales para cabeceras y sidebar
+  const { data: metadata } = useMetadataFiltersQuery()
+  const { data: entitiesData } = useEntitiesQuery({ pageSize: 1 })
 
   const userRole: UserRole = isAuthenticated ? "accredited" : "public"
 
-  // Garantizar que usuarios sin acreditar naveguen exclusivamente en vistas públicas sin advertencias
-  useEffect(() => {
-    if (!isAuthenticated && (activeView === "benchmarking" || activeView === "admin_users" || activeView === "audit_logs")) {
-      setActiveView("dashboard")
-    }
-  }, [isAuthenticated, activeView])
-
-  // Estado de Metadatos
-  const [metadata, setMetadata] = useState<FiltersMetadata | null>(null)
-  const [loadingMeta, setLoadingMeta] = useState(true)
-
-  // Estado de Filtros de Visualización
-  const [selectedIndicator, setSelectedIndicator] = useState<string>("morosidad_cartera_total")
-  const [level, setLevel] = useState<AggregationLevel>("country")
-  const [selectedSegments, setSelectedSegments] = useState<SegmentCode[]>([
-    "SEGMENTO_1",
-    "SEGMENTO_2"
-  ])
-  const [selectedProvince, setSelectedProvince] = useState<string>("")
-  const [fromPeriod, setFromPeriod] = useState<string>("2024-01")
-  const [toPeriod, setToPeriod] = useState<string>("2025-12")
-  const [selectedRucs, setSelectedRucs] = useState<string[]>([
-    "0190155722001", // Jardín Azuayo
-    "0190115798001"  // JEP
-  ])
-
-  // Estado de Datos de Series
-  const [seriesData, setSeriesData] = useState<IndicatorSeriesResponse | null>(null)
-  const [loadingSeries, setLoadingSeries] = useState(false)
-  const [seriesError, setSeriesError] = useState<string | null>(null)
-
-  // Estado de Resumen de KPIs
-  const [kpiValues, setKpiValues] = useState<Record<string, { value: number | null }>>({})
-
-  // Estado de Tabla de Entidades
-  const [entities, setEntities] = useState<EntitySummary[]>([])
-  const [loadingEntities, setLoadingEntities] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [entityPage, setEntityPage] = useState(1)
-  const [entityTotalPages, setEntityTotalPages] = useState(1)
-  const [entityTotalItems, setEntityTotalItems] = useState(0)
-
-  // 1. Validar sesión HttpOnly y Cargar Metadatos al Iniciar
+  // 1. Validar sesión HttpOnly al montar
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
 
-  const loadMeta = useCallback(async (isRefresh = false) => {
-    try {
-      setLoadingMeta(true)
-      const meta = await fetchMetadataFilters()
-      setMetadata(meta)
-
-      if (meta.periods.available.length > 0) {
-        const avail = meta.periods.available
-        setToPeriod(meta.periods.latest)
-        const startIdx = Math.max(0, avail.length - 24)
-        setFromPeriod(avail[startIdx])
-      }
-
-      const kpiMap: Record<string, { value: number | null }> = {}
-      meta.indicators.forEach((ind: any) => {
-        if (ind.latest_value !== undefined && ind.latest_value !== null) {
-          kpiMap[ind.id] = { value: ind.latest_value }
-        }
-      })
-      setKpiValues(kpiMap)
-
-      if (isRefresh) {
-        queryClient.invalidateQueries()
-      }
-    } catch (err: unknown) {
-      console.error("Error cargando metadatos:", err)
-    } finally {
-      setLoadingMeta(false)
-    }
-  }, [])
-
+  // 2. Garantizar que usuarios sin acreditar no queden en vistas restringidas
   useEffect(() => {
-    loadMeta()
-  }, [loadMeta])
-
-  // Escuchar evento de actualización del pipeline y sincronización web en tiempo real
-  useEffect(() => {
-    const handlePipelineUpdate = () => {
-      loadMeta(true)
+    if (
+      !isAuthenticated &&
+      (store.activeView === "benchmarking" ||
+        store.activeView === "admin_users" ||
+        store.activeView === "audit_logs")
+    ) {
+      store.setActiveView("dashboard")
     }
-    window.addEventListener("pipeline-data-updated", handlePipelineUpdate)
-    return () => window.removeEventListener("pipeline-data-updated", handlePipelineUpdate)
-  }, [loadMeta])
-
-  // 2. Cargar Serie de Tiempo para el indicador seleccionado
-  useEffect(() => {
-    async function loadSeries() {
-      if (!selectedIndicator) return
-      try {
-        setLoadingSeries(true)
-        setSeriesError(null)
-
-        const res = await fetchIndicatorSeries({
-          indicator: selectedIndicator,
-          level,
-          segment: level === "segment" ? selectedSegments : undefined,
-          province: selectedProvince ? [selectedProvince] : undefined,
-          ruc: level === "entity" ? selectedRucs : undefined,
-          from: fromPeriod,
-          to: toPeriod
-        })
-        setSeriesData(res)
-
-        if (res.series?.[0]?.points?.length) {
-          const lastPt = res.series[0].points[res.series[0].points.length - 1]
-          if (lastPt?.value !== null && lastPt?.value !== undefined) {
-            setKpiValues((prev) => ({
-              ...prev,
-              [selectedIndicator]: { value: lastPt.value }
-            }))
-          }
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Error al cargar series temporales."
-        setSeriesError(msg)
-      } finally {
-        setLoadingSeries(false)
-      }
-    }
-
-    loadSeries()
-  }, [
-    selectedIndicator,
-    level,
-    selectedSegments,
-    selectedProvince,
-    selectedRucs,
-    fromPeriod,
-    toPeriod
-  ])
-
-  // 3. Cargar Directorio de Entidades (con debounce)
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        setLoadingEntities(true)
-        const res = await fetchEntities({
-          q: searchQuery || undefined,
-          province: selectedProvince ? [selectedProvince] : undefined,
-          segment: level === "segment" ? selectedSegments : undefined,
-          page: entityPage,
-          pageSize: 15
-        })
-        setEntities(res.data)
-        setEntityTotalPages(res.pagination.total_pages)
-        setEntityTotalItems(res.pagination.total_items)
-      } catch (err: unknown) {
-        console.error("Error al cargar entidades:", err)
-      } finally {
-        setLoadingEntities(false)
-      }
-    }, 250)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery, selectedProvince, selectedSegments, level, entityPage])
-
-  const handleToggleSegment = (code: SegmentCode) => {
-    setSelectedSegments((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
-    )
-  }
-
-  const handleToggleEntity = (ruc: string) => {
-    setSelectedRucs((prev) => {
-      if (prev.includes(ruc)) {
-        if (prev.length <= 1) return prev
-        return prev.filter((r) => r !== ruc)
-      } else {
-        return prev.length >= 5 ? [...prev.slice(1), ruc] : [...prev, ruc]
-      }
-    })
-  }
-
-  const handleRemoveRuc = (ruc: string) => {
-    if (selectedRucs.length > 1) {
-      setSelectedRucs((prev) => prev.filter((r) => r !== ruc))
-    }
-  }
+  }, [isAuthenticated, store.activeView, store])
 
   const handleToggleRole = () => {
     if (isAuthenticated) {
@@ -242,170 +61,60 @@ const AppContent: React.FC = () => {
     }
   }
 
-  const handleSelectDimension = (dim: "all" | IndicatorCategory) => {
-    setSelectedDimension(dim)
-    setActiveView("dashboard")
-
-    if (dim !== "all") {
-      const matching = metadata?.indicators.filter((i) => i.category === dim) || []
-      if (matching.length > 0 && !matching.some((i) => i.id === selectedIndicator)) {
-        setSelectedIndicator(matching[0].id)
-      }
-    }
-  }
-
-  const handleSelectAndGraph = (indicatorId: string) => {
-    setSelectedIndicator(indicatorId)
-    const ind = metadata?.indicators.find((i) => i.id === indicatorId)
-    if (ind?.category) {
-      setSelectedDimension(ind.category as IndicatorCategory)
-    }
-    setActiveView("dashboard")
-  }
-
-  const handleExportGlobal = () => {
-    if (!isAuthenticated) return
-    if (seriesData && seriesData.series.length > 0) {
-      const rows: Record<string, unknown>[] = []
-      seriesData.series.forEach((s) => {
-        s.points.forEach((p) => {
-          rows.push({
-            Serie: s.label,
-            Clave: s.key,
-            Periodo: p.period,
-            Valor: p.value,
-            Indicador: seriesData.indicator.id
-          })
-        })
-      })
-      exportToCsv(rows, `ESPOCH_DI060_${seriesData.indicator.id}_${fromPeriod}_${toPeriod}.csv`)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-slate-50/70 flex font-sans text-slate-800 antialiased selection:bg-emerald-200">
-      {/* Modal de Acreditación Institucional */}
       <LoginModal />
       <ChangePasswordModal />
 
-      {/* Sidebar de Navegación Lateral */}
+      {/* Menú Lateral Desacoplado */}
       <Sidebar
-        activeView={activeView}
-        onSelectView={setActiveView}
-        selectedDimension={selectedDimension}
-        onSelectDimension={handleSelectDimension}
+        activeView={store.activeView}
+        onSelectView={store.setActiveView}
+        selectedDimension={store.selectedDimension}
+        onSelectDimension={store.setSelectedDimension}
         userRole={userRole}
         onToggleRole={handleToggleRole}
         latestPeriod={metadata?.periods.latest}
-        totalEntities={entityTotalItems || 39}
-        isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        totalEntities={entitiesData?.pagination.total_items || 39}
+        isMobileOpen={store.isMobileMenuOpen}
+        onCloseMobile={() => store.setIsMobileMenuOpen(false)}
+        isCollapsed={store.isSidebarCollapsed}
+        onToggleCollapse={() => store.setIsSidebarCollapsed(!store.isSidebarCollapsed)}
         systemRole={user?.role}
       />
 
-      {/* Contenedor Principal */}
-      <div
-        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out w-full ${
-          isSidebarCollapsed ? "lg:pl-20" : "lg:pl-72"
-        }`}
-      >
-        {/* TopBar Superior */}
+      {/* Área Principal de Contenido */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
         <TopBar
-          activeView={activeView}
-          selectedDimension={selectedDimension}
+          activeView={store.activeView}
+          selectedDimension={store.selectedDimension}
           userRole={userRole}
           onToggleRole={handleToggleRole}
-          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          onOpenMobileMenu={() => store.setIsMobileMenuOpen(true)}
           latestPeriod={metadata?.periods.latest}
           dataAsOf={metadata?.data_as_of}
-          onExportReport={isAuthenticated ? handleExportGlobal : undefined}
-          isSidebarCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isSidebarCollapsed={store.isSidebarCollapsed}
+          onToggleCollapse={() => store.setIsSidebarCollapsed(!store.isSidebarCollapsed)}
         />
 
-        {/* Área de Visualización */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full space-y-6">
-          {activeView === "dashboard" && (
-            <DashboardView
-              metadata={metadata}
-              selectedIndicator={selectedIndicator}
-              onSelectIndicator={setSelectedIndicator}
-              kpiValues={kpiValues}
-              level={level}
-              onLevelChange={setLevel}
-              selectedSegments={selectedSegments}
-              onToggleSegment={handleToggleSegment}
-              selectedProvince={selectedProvince}
-              onProvinceChange={setSelectedProvince}
-              fromPeriod={fromPeriod}
-              toPeriod={toPeriod}
-              onFromChange={setFromPeriod}
-              onToChange={setToPeriod}
-              selectedRucs={selectedRucs}
-              onRemoveRuc={handleRemoveRuc}
-              seriesData={seriesData}
-              loadingSeries={loadingSeries}
-              seriesError={seriesError}
-              entities={entities}
-              onNavigateToBenchmarking={() => setActiveView("benchmarking")}
-              selectedDimension={selectedDimension}
-              userRole={userRole}
-              onUnlockAccredited={openLoginModal}
-            />
-          )}
+        <main className="flex-1 p-4 lg:p-6 max-w-7xl w-full mx-auto space-y-6">
+          {store.activeView === "dashboard" && <DashboardView />}
 
-          {isAuthenticated && activeView === "benchmarking" && (
+          {isAuthenticated && store.activeView === "benchmarking" && (
             <ProtectedRoute
               requiredRoles={["investigador", "auditor", "administrador"]}
               fallbackTitle="Diagnóstico CAMEL & Supervisión Institucional"
               fallbackDescription="El comparador analítico de cooperativas supervisadas con semáforo regulatorio SEPS v3.0 está reservado para perfiles institucionales acreditados."
             >
-              <BenchmarkingProView
-                metadata={metadata}
-                entities={entities}
-                initialSelectedRucs={selectedRucs}
-              />
+              <BenchmarkingView />
             </ProtectedRoute>
           )}
 
-          {activeView === "catalog" && (
-            <CatalogView
-              userRole={userRole}
-              onSelectAndGraph={handleSelectAndGraph}
-              onUnlockAccredited={openLoginModal}
-            />
-          )}
+          {store.activeView === "catalog" && <CatalogView />}
 
-          {activeView === "entities" && (
-            <EntitiesView
-              entities={entities}
-              isLoading={loadingEntities}
-              searchQuery={searchQuery}
-              onSearchChange={(q) => {
-                setSearchQuery(q)
-                setEntityPage(1)
-              }}
-              selectedRucs={selectedRucs}
-              onToggleEntity={handleToggleEntity}
-              currentPage={entityPage}
-              totalPages={entityTotalPages}
-              totalItems={entityTotalItems}
-              onPageChange={setEntityPage}
-              onNavigateToBenchmarking={() => setActiveView("benchmarking")}
-              onNavigateToDashboard={() => {
-                setActiveView("dashboard")
-                setSelectedDimension("all")
-                if (selectedRucs.length > 0) {
-                  setLevel("entity")
-                }
-              }}
-              canExport={isAuthenticated}
-            />
-          )}
+          {store.activeView === "entities" && <EntitiesView />}
 
-          {activeView === "admin_users" && (
+          {store.activeView === "admin_users" && (
             <ProtectedRoute
               requiredRoles={["administrador"]}
               fallbackTitle="Panel de Administración Exclusivo"
@@ -415,7 +124,7 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           )}
 
-          {activeView === "audit_logs" && (
+          {store.activeView === "audit_logs" && (
             <ProtectedRoute
               requiredRoles={["auditor", "administrador"]}
               fallbackTitle="Módulo de Auditoría Forense"
@@ -426,7 +135,6 @@ const AppContent: React.FC = () => {
           )}
         </main>
 
-        {/* Footer Institucional */}
         <footer className="border-t border-slate-200/80 bg-white py-5 px-6 lg:px-8 text-xs text-slate-500 mt-auto w-full">
           <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">

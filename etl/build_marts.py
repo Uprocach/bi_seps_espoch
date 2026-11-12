@@ -51,8 +51,9 @@ SEGMENTS_DEF = [
     {"code": "SEGMENTO_1_MUTUALISTA", "label": "Mutualistas Segmento 1", "reporting_frequency": "monthly"}
 ]
 
-def build_marts():
-    MART_DIR.mkdir(parents=True, exist_ok=True)
+def build_marts(target_dir: Path | None = None):
+    out_dir = Path(target_dir) if target_dir else Path(os.getenv("MART_DIR", str(BASE_DIR / "data" / "processed" / "mart")))
+    out_dir.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
     con.execute("PRAGMA threads=4;")
 
@@ -721,15 +722,15 @@ def build_marts():
 
     print("[6/6] Guardando data marts en formato Parquet...")
     
-    con.execute(f"COPY dim_provinces TO '{MART_DIR / 'dim_provinces.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
-    con.execute(f"COPY dim_segments TO '{MART_DIR / 'dim_segments.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
-    con.execute(f"COPY dim_entities TO '{MART_DIR / 'dim_entities.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
-    con.execute(f"COPY fct_indicators_entity_monthly TO '{MART_DIR / 'fct_indicators_entity_monthly.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
-    con.execute(f"COPY fct_indicators_segment_monthly TO '{MART_DIR / 'fct_indicators_segment_monthly.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
-    con.execute(f"COPY fct_indicators_country_monthly TO '{MART_DIR / 'fct_indicators_country_monthly.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
+    con.execute(f"COPY dim_provinces TO '{out_dir / 'dim_provinces.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
+    con.execute(f"COPY dim_segments TO '{out_dir / 'dim_segments.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
+    con.execute(f"COPY dim_entities TO '{out_dir / 'dim_entities.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
+    con.execute(f"COPY fct_indicators_entity_monthly TO '{out_dir / 'fct_indicators_entity_monthly.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
+    con.execute(f"COPY fct_indicators_segment_monthly TO '{out_dir / 'fct_indicators_segment_monthly.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
+    con.execute(f"COPY fct_indicators_country_monthly TO '{out_dir / 'fct_indicators_country_monthly.parquet'}' (FORMAT PARQUET, COMPRESSION ZSTD);")
 
     # AUD-10: Particionamiento Hive en Parquet para optimizar consultas de series analíticas
-    partition_dir = MART_DIR / "partitioned" / "fct_indicators_entity"
+    partition_dir = out_dir / "partitioned" / "fct_indicators_entity"
     partition_dir.mkdir(parents=True, exist_ok=True)
     partition_path = str(partition_dir).replace("\\", "/")
     print(f"Exportando hechos particionados (Hive partitioning) a {partition_path}...")
