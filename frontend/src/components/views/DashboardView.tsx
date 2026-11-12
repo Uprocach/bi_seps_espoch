@@ -5,8 +5,7 @@ import {
   Building,
   Droplets,
   Settings,
-  Layers,
-  Lock
+  Layers
 } from "lucide-react"
 import { KPICards } from "@/components/KPICards"
 import { FiltersBar } from "@/components/FiltersBar"
@@ -14,7 +13,6 @@ import { TimeSeriesChart } from "@/components/TimeSeriesChart"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { cn, formatCurrency } from "@/lib/utils"
 import type {
   FiltersMetadata,
   EntitySummary,
@@ -25,7 +23,6 @@ import type {
 import type { UserRole } from "@/components/Sidebar"
 import {
   CAMEL_DIMENSIONS,
-  EXTENDED_CATALOG,
   type IndicatorCategory
 } from "@/data/extendedCatalog"
 import { useDashboardStore } from "@/store/useDashboardStore"
@@ -155,15 +152,6 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
     return result
   }, [metadata?.periods])
 
-  // Indicadores de la dimensión seleccionada
-  const dimAllIndicators = EXTENDED_CATALOG.filter(
-    (i) => i.category === selectedDimension
-  )
-  const dimPublicIndicators = dimAllIndicators.filter((i) => i.access === "public")
-  const dimAccreditedIndicators = dimAllIndicators.filter(
-    (i) => i.access === "accredited"
-  )
-
   const getDimensionIcon = (id: IndicatorCategory) => {
     switch (id) {
       case "calidad_de_activos":
@@ -194,7 +182,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
                 <DimIcon className="h-4 w-4" />
               </span>
               <h2 className="text-base sm:text-lg font-bold font-serif tracking-tight text-slate-900">
-                Dashboard de {currentDimMeta.name}
+                Dashboard: {currentDimMeta.name}
               </h2>
               <Badge variant="mint" className="text-[10px] uppercase font-bold">
                 {currentDimMeta.badge}
@@ -204,131 +192,17 @@ export const DashboardView: React.FC<DashboardViewProps> = (props) => {
               {currentDimMeta.description} <span className="text-slate-300 mx-1">•</span> <span className="font-mono text-[11px] text-emerald-700">{currentDimMeta.normativeFocus}</span>
             </p>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="mint" className="text-xs px-2.5 py-1">
-              {dimPublicIndicators.length} Indicadores Disponibles
-            </Badge>
-            {isAccredited && dimAccreditedIndicators.length > 0 && (
-              <Badge variant="gold" className="text-xs px-2.5 py-1">
-                +{dimAccreditedIndicators.length} Fichas Adicionales
-              </Badge>
-            )}
-          </div>
         </div>
       )}
 
-      {/* BLOQUE DE TARJETAS KPI CAMEL O RATIOS DE LA DIMENSIÓN */}
-      {selectedDimension === "all" ? (
-        <KPICards
-          indicators={metadata?.indicators || []}
-          kpiValues={computedKpiValues}
-          selectedIndicator={selectedIndicator}
-          onSelectIndicator={onSelectIndicator}
-          periodLabel={toPeriod}
-        />
-      ) : (
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800 tracking-tight uppercase">
-                Ratios Normativos de {currentDimMeta?.name} ({dimAllIndicators.length} Fichas Técnicas)
-              </h3>
-            </div>
-            <span className="text-[11px] text-slate-400 font-medium">
-              Selecciona cualquier indicador para proyectar su serie histórica en el gráfico inferior
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {dimAllIndicators.map((ind) => {
-              const isSelected = selectedIndicator === ind.id
-              const isLocked = ind.access === "accredited" && !isAccredited
-              const val = computedKpiValues[ind.id]?.value
-
-              const formattedVal =
-                val !== null && val !== undefined
-                  ? ind.unit === "usd"
-                    ? formatCurrency(val)
-                    : ind.unit === "ratio"
-                    ? Number(val).toFixed(2)
-                    : `${Number(val).toFixed(ind.decimals ?? 2)}%`
-                  : "N/D"
-
-              return (
-                <Card
-                  key={ind.id}
-                  onClick={() => {
-                    if (isLocked) {
-                      onUnlockAccredited()
-                    } else {
-                      onSelectIndicator(ind.id)
-                    }
-                  }}
-                  className={cn(
-                    "cursor-pointer transition-all duration-200 relative overflow-hidden group bg-white shadow-2xs hover:shadow-md border",
-                    isSelected
-                      ? "border-emerald-600 bg-gradient-to-b from-emerald-50/40 via-white to-white ring-2 ring-emerald-600/20 shadow-sm"
-                      : "border-slate-200/90 hover:border-emerald-300",
-                    isLocked && "opacity-85 bg-slate-50/50"
-                  )}
-                >
-                  {isSelected && (
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-600 via-teal-500 to-amber-500" />
-                  )}
-
-                  <CardHeader className="p-3 pb-1 space-y-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                        {ind.seps_ficha_number ? `Ficha #${ind.seps_ficha_number}` : "Normativo"}
-                      </span>
-                      {isLocked ? (
-                        <Badge variant="slate" className="text-[9px] px-1.5 py-0 flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5" /> Acreditado
-                        </Badge>
-                      ) : (
-                        <Badge variant="mint" className="text-[9px] px-1.5 py-0">
-                          {ind.unit}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between gap-1">
-                      <CardTitle className="text-xs font-bold text-slate-900 truncate" title={ind.name}>
-                        {ind.short_name || ind.name}
-                      </CardTitle>
-                      {isSelected && (
-                        <Badge variant="mint" className="text-[9px] px-1.5 py-0 h-4 uppercase font-bold shrink-0">
-                          En Gráfico
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="p-3 pt-1.5">
-                    <div className="flex items-baseline justify-between mb-1">
-                      <div className="text-lg font-bold tracking-tight text-slate-900 font-mono">
-                        {isLocked ? "••••••" : formattedVal}
-                      </div>
-                      <Badge
-                        variant={ind.polarity === "lower_is_better" ? "gold" : "mint"}
-                        className="text-[9px]"
-                      >
-                        {ind.polarity === "lower_is_better" ? "Menor" : "Mayor"}
-                      </Badge>
-                    </div>
-
-                    <p className="text-[10px] text-slate-400 line-clamp-2 leading-tight">
-                      {ind.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* BLOQUE DE TARJETAS KPI CAMEL (5 INDICADORES BÁSICOS ACORDADOS) */}
+      <KPICards
+        indicators={metadata?.indicators || []}
+        kpiValues={computedKpiValues}
+        selectedIndicator={selectedIndicator}
+        onSelectIndicator={onSelectIndicator}
+        periodLabel={toPeriod}
+      />
 
       {/* BARRA SUPERIOR DE FILTROS GLOBALES */}
       <FiltersBar
