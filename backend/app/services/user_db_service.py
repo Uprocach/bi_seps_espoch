@@ -194,27 +194,11 @@ class UserDBService:
         seeds = [
             (
                 settings.ADMIN_USER,
-                f"{settings.ADMIN_USER}@espoch.edu.ec",
-                "Administrador Plataforma ESPOCH-DI-060",
+                getattr(settings, "ADMIN_EMAIL", "dennys.rojas@espoch.edu.ec"),
+                getattr(settings, "ADMIN_FULL_NAME", "Dennys Rojas"),
                 "administrador",
                 settings.ADMIN_PASSWORD,
-                0  # must_change_password = 0 para admin inicial
-            ),
-            (
-                settings.ACCREDITED_USER,
-                f"{settings.ACCREDITED_USER}@espoch.edu.ec",
-                "Investigador Institucional ESPOCH",
-                "investigador",
-                settings.ACCREDITED_PASSWORD,
-                0
-            ),
-            (
-                settings.AUDITOR_USER,
-                f"{settings.AUDITOR_USER}@espoch.edu.ec",
-                "Auditor Financiero de Riesgo SFPS",
-                "auditor",
-                settings.AUDITOR_PASSWORD,
-                0
+                1  # must_change_password = 1 para cambio obligatorio en primer acceso
             )
         ]
 

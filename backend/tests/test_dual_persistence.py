@@ -18,10 +18,11 @@ def test_sqlite_fallback_initialization():
         assert test_db.exists()
 
         # Validar siembra automática
-        admin = service.get_user_by_username_or_email("admin.espoch")
+        from backend.app.core.config import settings
+        admin = service.get_user_by_username_or_email(settings.ADMIN_USER)
         assert admin is not None
         assert admin["role"] == "administrador"
-        assert admin["must_change_password"] == 0
+        assert admin["must_change_password"] == 1
 
 
 def test_postgres_url_normalization_and_routing():

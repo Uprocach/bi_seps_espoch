@@ -34,8 +34,10 @@ class Settings:
     ACCREDITED_PASSWORD: str = os.getenv("ACCREDITED_PASSWORD", "EspochPro2026#")
     AUDITOR_USER: str = os.getenv("AUDITOR_USER", "auditor.espoch")
     AUDITOR_PASSWORD: str = os.getenv("AUDITOR_PASSWORD", "EspochAuditor2026#")
-    ADMIN_USER: str = os.getenv("ADMIN_USER", "admin.espoch")
-    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "EspochAdmin2026#")
+    ADMIN_USER: str = os.getenv("ADMIN_USER", "dennys.rojas")
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "dennys.rojas@espoch.edu.ec")
+    ADMIN_FULL_NAME: str = os.getenv("ADMIN_FULL_NAME", "Dennys Rojas")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "dennys.rojas")
     
     CORS_ORIGINS: list[str] = [
         origin.strip()

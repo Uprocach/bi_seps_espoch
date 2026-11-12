@@ -52,9 +52,9 @@ Esta guía detalla los pasos para poner en marcha el sistema en producción con 
 
 1. Abre la URL asignada por Vercel (ej. `https://espoch-sfps.vercel.app`).
 2. Haz clic en **Acceso Acreditado** o **Iniciar Sesión**.
-3. Ingresa las credenciales maestras iniciales:
-   - **Usuario:** `admin.espoch`
-   - **Contraseña:** `EspochAdmin2026#`
+3. Ingresa tus credenciales maestras iniciales de Administrador:
+   - **Usuario:** `dennys.rojas` (o `dennys.rojas@espoch.edu.ec`)
+   - **Contraseña Inicial:** `dennys.rojas`
 4. El sistema detectará automáticamente la bandera de primer acceso (`must_change_password`) y presentará el modal obligatorio de actualización de credenciales.
 5. Define tu contraseña definitiva (mínimo 6 caracteres). A partir de ese momento, el usuario queda activado con rol de `administrador`.
 

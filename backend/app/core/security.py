@@ -286,8 +286,8 @@ def verify_credentials(username: str, password: str, requested_role: str = "inve
         settings.ADMIN_USER: {
             "password": settings.ADMIN_PASSWORD,
             "roles": ["administrador", "auditor", "investigador"],
-            "full_name": "Administrador Plataforma ESPOCH-DI-060",
-            "email": "admin.espoch@espoch.edu.ec"
+            "full_name": getattr(settings, "ADMIN_FULL_NAME", "Dennys Rojas"),
+            "email": getattr(settings, "ADMIN_EMAIL", "dennys.rojas@espoch.edu.ec")
         }
     }
 
