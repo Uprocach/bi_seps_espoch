@@ -62,7 +62,7 @@ import {
   downloadExportExcel
 } from "@/services/proClient"
 import { useAuthStore } from "@/store/useAuthStore"
-import { formatCoopName } from "@/lib/utils"
+import { formatCoopName, formatCurrency } from "@/lib/utils"
 
 import { useDashboardStore } from "@/store/useDashboardStore"
 import { useMetadataFiltersQuery, useEntitiesQuery } from "@/hooks/useIndicatorsQueries"
@@ -557,7 +557,12 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
       label = "Crítico"
     }
 
-    const formattedValue = unit === "percent" ? `${value.toFixed(2)}%` : value.toFixed(2)
+    const formattedValue =
+      unit === "usd"
+        ? formatCurrency(value)
+        : unit === "percent"
+        ? `${value.toFixed(2)}%`
+        : value.toFixed(2)
 
     return (
       <div className="group relative inline-flex items-center">
@@ -1757,7 +1762,16 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                     <LineChart data={chartSeriesData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                       <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) =>
+                          currentIndicatorMeta?.unit === "usd"
+                            ? formatCurrency(v)
+                            : currentIndicatorMeta?.unit === "ratio"
+                            ? Number(v).toFixed(2)
+                            : `${v}%`
+                        }
+                      />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "#064E3B",
@@ -1768,7 +1782,10 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                         }}
                         formatter={(val: unknown) => {
                           const num = typeof val === "number" ? val : Number(val)
-                          return isNaN(num) ? "N/D" : `${num.toFixed(2)}%`
+                          if (isNaN(num)) return "N/D"
+                          if (currentIndicatorMeta?.unit === "usd") return formatCurrency(num)
+                          if (currentIndicatorMeta?.unit === "ratio") return num.toFixed(2)
+                          return `${num.toFixed(2)}%`
                         }}
                       />
                       <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
@@ -1864,7 +1881,17 @@ export const BenchmarkingProView: React.FC<BenchmarkingProViewProps> = (props) =
                           fontSize: "11px",
                           color: "#FFFFFF"
                         }}
-                        formatter={(val: unknown) => [`${Number(val).toFixed(2)}%`, "Ratio"]}
+                        formatter={(val: unknown) => {
+                          const num = typeof val === "number" ? val : Number(val)
+                          if (isNaN(num)) return ["N/D", "Valor"]
+                          const formatted =
+                            currentIndicatorMeta?.unit === "usd"
+                              ? formatCurrency(num)
+                              : currentIndicatorMeta?.unit === "ratio"
+                              ? num.toFixed(2)
+                              : `${num.toFixed(2)}%`
+                          return [formatted, currentIndicatorMeta?.unit === "usd" ? "Monto" : "Ratio"]
+                        }}
                       />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                         {barComparisonData.map((entry, index) => (

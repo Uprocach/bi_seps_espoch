@@ -119,7 +119,11 @@ export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({
                     </span>
                   </div>
                   <span className="font-mono font-bold text-slate-900">
-                    {formatPercent(item.value, indicator.decimals)}
+                    {indicator.unit === "usd"
+                      ? formatCurrency(item.value)
+                      : indicator.unit === "ratio"
+                      ? Number(item.value).toFixed(indicator.decimals ?? 2)
+                      : formatPercent(item.value, indicator.decimals)}
                   </span>
                 </div>
                 {num !== undefined && den !== undefined && (
@@ -220,7 +224,13 @@ export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `${v}%`}
+                tickFormatter={(v) =>
+                  indicator.unit === "usd"
+                    ? formatCurrency(v)
+                    : indicator.unit === "ratio"
+                    ? Number(v).toFixed(2)
+                    : `${v}%`
+                }
                 domain={["dataMin - 0.5", "dataMax + 0.5"]}
               />
               <Tooltip content={<CustomTooltip />} />
