@@ -74,7 +74,7 @@ Para que el workflow mensual programado pueda confirmar y actualizar los cubos P
 1. En GitHub, ve a la pestaña **Actions**.
 2. En la lista izquierda, selecciona **Monthly SEPS ETL Pipeline & Verification**.
 3. Haz clic en el botón desplegable **Run workflow** -> **Run workflow**.
-4. El job descargará balances de la SEPS, validará la integridad matemática de los cubos Parquet con DuckDB y, si hay nuevos datos, hará commit a `master`, provocando un despliegue instantáneo y automático en Vercel.
+4. El job descargará balances de la SEPS, validará la integridad matemática de los cubos Parquet con DuckDB y, si hay nuevos datos, hará commit a `main`, provocando un despliegue instantáneo y automático en Vercel.
 
 ---
 

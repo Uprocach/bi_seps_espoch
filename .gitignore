@@ -23,11 +23,7 @@ data/raw/
 data/interim/
 data/processed/*
 !data/processed/mart/
-!data/processed/mart/**
 !data/processed/CURRENT_MART
-!*.parquet
-data/raw/**/*.parquet
-data/interim/**/*.parquet
 *.duckdb
 *.db
 *.db-shm

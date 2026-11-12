@@ -57,7 +57,7 @@ jobs:
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git add data/processed/mart data/interim
             git commit -m "chore(data): automated monthly SEPS update [skip ci]"
-            git push origin master
+            git push origin main
           else
             echo "No se detectaron cambios en los cubos analíticos. El sistema se encuentra al día."
           fi
