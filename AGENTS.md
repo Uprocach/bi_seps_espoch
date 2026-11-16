@@ -16,6 +16,10 @@ Canonical triage roles mapped to local issue statuses (`needs-triage`, `needs-in
 
 Single-context layout (`GLOSSARY.md` and `docs/adr/` at the repository root). See `docs/agents/domain.md`.
 
+### Coding standards
+
+Judgement-call standards for `/code-review` live in `CODING_STANDARDS.md`.
+
 ---
 
 ## Technical Stack & Architecture
@@ -32,4 +36,7 @@ Single-context layout (`GLOSSARY.md` and `docs/adr/` at the repository root). Se
 - **Linting de Contrato:** `npm run contract:lint`
 - **Tests Analíticos DuckDB:** `npm run etl:test`
 - **Tests Backend (Pytest):** `npm run backend:test`
+- **Guardrails Mecánicos:** `npm run guardrails:check`
+- **Typecheck Frontend:** `npm run frontend:typecheck`
+- **Tests Frontend:** `npm run frontend:test`
 - **Compilación Frontend:** `npm run frontend:build`

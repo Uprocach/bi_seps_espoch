@@ -1,4 +1,4 @@
-import type { EntitySummary, IndicatorMeta } from "@/services/httpClient"
+import type { IndicatorMeta } from "@/services/httpClient"
 
 export type Role = "public" | "investigador" | "auditor" | "administrador"
 
@@ -20,42 +20,11 @@ export interface CamelEvaluation {
   threshold?: Record<string, unknown>
 }
 
-export interface BenchmarkingIndicatorRow {
-  indicator_id: string
-  indicator_name: string
-  dimension: string
-  unit: string
-  polarity: "higher_is_better" | "lower_is_better" | "neutral"
-  seps_ficha_number?: number | null
-  entity_values: Record<string, number | null>
-  entity_evaluations: Record<string, CamelEvaluation>
-  segment1_baseline: number | null
-  country_baseline: number | null
-}
-
-export interface BenchmarkingSeriesPoint {
-  period: string
-  entity_values: Record<string, number | null>
-  segment1_baseline?: number | null
-  country_baseline?: number | null
-}
-
 export interface BenchmarkingCompareRequest {
   entity_ids: string[]
   start_date: string
   end_date: string
   camel_dimension?: CamelDimension
-}
-
-export interface BenchmarkingCompareResponse {
-  entities: EntitySummary[]
-  start_date: string
-  end_date: string
-  camel_dimension?: string | null
-  indicators: BenchmarkingIndicatorRow[]
-  time_series: Record<string, BenchmarkingSeriesPoint[]>
-  total_indicators: number
-  generated_at: string
 }
 
 export interface ExportRequestPayload {

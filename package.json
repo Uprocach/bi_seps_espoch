@@ -13,9 +13,12 @@
     "backend:test": ".venv\\Scripts\\python.exe -m pytest backend/tests -v",
     "backend:dev": ".venv\\Scripts\\uvicorn.exe backend.app.main:app --reload --port 8000",
     "frontend:codegen": "npm --prefix frontend run codegen:api",
+    "frontend:typecheck": "npm --prefix frontend run typecheck",
+    "frontend:test": "npm --prefix frontend run test",
     "frontend:build": "npm --prefix frontend run build",
     "frontend:dev": "npm --prefix frontend run dev",
-    "test": "npm run contract:lint && npm run etl:test && npm run backend:test && npm run frontend:build"
+    "guardrails:check": "node scripts/check-guardrails.mjs",
+    "test": "npm run contract:lint && npm run guardrails:check && npm run etl:test && npm run backend:test && npm run frontend:typecheck && npm run frontend:test && npm run frontend:build"
   },
   "devDependencies": {
     "@stoplight/prism-cli": "^5.12.0",
