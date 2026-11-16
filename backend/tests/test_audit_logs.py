@@ -52,3 +52,34 @@ def test_audit_logs_admin_allowed_and_filters():
     assert data["limit"] == 10
     assert data["offset"] == 0
     assert isinstance(data["logs"], list)
+
+
+def test_mart_atomic_switch_persists_pipeline_switch_audit_event(tmp_path, monkeypatch):
+    """Regresión: atomic_switch debe registrar pipeline:switch en AuditTrail."""
+    from backend.app.core.config import settings
+    from backend.app.services.dual_db import DualDatabaseAdapter
+    from backend.app.services.audit_service import AuditService
+    import backend.app.services.audit_service as audit_mod
+    from backend.app.services.mart_provider import MartPathProvider
+
+    processed_dir = tmp_path / "processed"
+    mart_dir = processed_dir / "mart"
+    staging_dir = processed_dir / "mart_staging"
+    mart_dir.mkdir(parents=True)
+    staging_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(settings, "DATA_MART_DIR", mart_dir)
+
+    isolated_audit = AuditService(
+        adapter=DualDatabaseAdapter(db_path=tmp_path / "audit_switch.db", database_url=None)
+    )
+    monkeypatch.setattr(audit_mod, "audit_service", isolated_audit)
+
+    provider = MartPathProvider()
+    record = provider.atomic_switch(new_dir_name="mart_staging", trigger_user="admin.test", validate=False)
+
+    assert record["switched_to"] == "mart_staging"
+    events, total = isolated_audit.query_events(action="pipeline:switch", user_sub="admin.test")
+    assert total == 1
+    assert events[0]["action"] == "pipeline:switch"
+    assert events[0]["resource"] == "/api/v1/admin/pipeline/switch"

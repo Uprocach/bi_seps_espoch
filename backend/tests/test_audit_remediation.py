@@ -24,15 +24,14 @@ from backend.app.core.security import (
     CSRFOriginValidationMiddleware
 )
 from backend.app.core.errors import APIProblemException
-from backend.app.services.benchmarking_service import benchmarking_service
 from backend.app.services.camel_evaluator import camel_evaluator
-from backend.app.services.export_service import export_service
-from backend.app.services.repository import AnalyticsRepository
+from backend.app.services.export_formatter import export_formatter
+from backend.app.services.repository import AnalyticsRepository, analytics_repository
 from backend.app.models.schemas import ExportRequest
 
 def test_remediation_neutral_polarity_ranking():
     """AUD-01: Valida que el ranking de un indicador 'neutral' ordene por cercanía al centro normativo y no por DESC."""
-    res = benchmarking_service.get_entity_ranking(
+    res = analytics_repository.get_entity_ranking(
         indicator_id="intermediacion_financiera",
         period="2025-12",
         limit=20
@@ -55,7 +54,7 @@ def test_remediation_neutral_polarity_ranking():
 def test_remediation_invalid_indicator_ranking_400():
     """AUD-01: Valida que consultar ranking de un indicador inexistente lance un 400 en vez de fallback silencioso."""
     with pytest.raises(APIProblemException) as exc:
-        benchmarking_service.get_entity_ranking(
+        analytics_repository.get_entity_ranking(
             indicator_id="indicador_inexistente_xyz",
             period="2025-12"
         )
@@ -186,13 +185,19 @@ def test_remediation_export_service_constant_memory_and_csv_bom():
         camel_dimension="capital"
     )
 
-    # Validar Excel binario válido generado
-    excel_bytes = export_service.generate_excel(req)
+    # Validar Excel binario válido generado desde el repositorio consolidado
+    excel_bytes = analytics_repository.export_benchmarking_excel(req)
     assert len(excel_bytes) > 2000
     assert excel_bytes.startswith(b"PK")  # Cabecera estándar ZIP de archivos xlsx
 
-    # Validar CSV con UTF-8 BOM
-    csv_chunks = list(export_service.stream_csv(req, delimiter=";"))
+    # Validar CSV con UTF-8 BOM desde ExportFormatter + AnalyticsRepository
+    rows_iter = analytics_repository.extract_entity_microdata_rows(
+        entity_ids=req.entity_ids,
+        start_date=req.start_date,
+        end_date=req.end_date,
+        camel_dimension=req.camel_dimension
+    )
+    csv_chunks = list(export_formatter.stream_csv(rows_iter, delimiter=";"))
     assert csv_chunks[0] == "\ufeff"
     assert "periodo;ruc;nombre_comercial;razon_social" in csv_chunks[1]
 
@@ -217,19 +222,22 @@ def test_remediation_aud16_ruc_format_validation():
         )
     assert "Formato de RUC inválido" in str(exc2.value)
 
-def test_remediation_aud13_aud15_persistent_sqlite_audit_logs_and_wal():
+def test_remediation_aud13_aud15_persistent_sqlite_audit_logs_and_wal(tmp_path):
     """AUD-13 & AUD-15: Valida persistencia de audit_logs en SQLite y modo WAL activo."""
-    from backend.app.services.user_db_service import user_db
-    from backend.app.services.audit_service import audit_service
+    from backend.app.services.dual_db import DualDatabaseAdapter
+    from backend.app.services.audit_service import AuditService
 
-    # 1. Validar que journal_mode es WAL
-    with user_db._get_connection() as conn:
+    adapter = DualDatabaseAdapter(db_path=tmp_path / "audit_wal.db", database_url=None)
+    audit = AuditService(adapter=adapter)
+
+    # 1. Validar que journal_mode es WAL a través de la costura pública
+    with adapter.connection() as conn:
         mode = conn.execute("PRAGMA journal_mode;").fetchone()[0]
         assert mode.lower() == "wal"
 
-    # 2. Registrar evento vía AuditService y recuperarlo vía query_events
+    # 2. Registrar evento vía AuditTrail y recuperarlo vía query_events
     test_action = "test:audit_remediation_verify"
-    audit_service.log_event(
+    audit.log_event(
         user_sub="test_auditor",
         user_role="auditor",
         action=test_action,
@@ -237,7 +245,7 @@ def test_remediation_aud13_aud15_persistent_sqlite_audit_logs_and_wal():
         details={"audit_verified": True}
     )
 
-    events, total = audit_service.query_events(action=test_action)
+    events, total = audit.query_events(action=test_action)
     assert total >= 1
     matched = [e for e in events if e["action"] == test_action]
     assert len(matched) >= 1

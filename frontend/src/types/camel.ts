@@ -1,4 +1,4 @@
-import type { EntitySummary, IndicatorMeta } from "@/services/apiClient"
+import type { EntitySummary, IndicatorMeta } from "@/services/httpClient"
 
 export type Role = "public" | "investigador" | "auditor" | "administrador"
 

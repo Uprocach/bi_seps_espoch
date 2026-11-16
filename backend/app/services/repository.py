@@ -921,5 +921,24 @@ class AnalyticsRepository:
                         eval_res.message
                     ]
 
+    def export_benchmarking_excel(self, req: Any) -> bytes:
+        """Genera el libro Excel multi-pestaña de benchmarking encapsulando spec y configuración CAMEL."""
+        from backend.app.models.schemas import BenchmarkingCompareRequest
+        from backend.app.services.camel_evaluator import camel_evaluator
+        from backend.app.services.export_formatter import export_formatter
+
+        compare_req = BenchmarkingCompareRequest(
+            entity_ids=req.entity_ids,
+            start_date=req.start_date,
+            end_date=req.end_date,
+            camel_dimension=req.camel_dimension,
+        )
+        compare_res = self.compare_entities(compare_req)
+        return export_formatter.generate_excel(
+            compare_res=compare_res,
+            indicators_spec=self.spec.get("indicators", []),
+            camel_config=camel_evaluator._config,
+        )
+
 # Instancia singleton del repositorio analítico consolidado
 analytics_repository = AnalyticsRepository()

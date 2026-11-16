@@ -2,7 +2,7 @@ import React from "react"
 import { Filter, Layers, Globe, Building } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import type { Segment, Province, AggregationLevel, SegmentCode } from "@/services/apiClient"
+import type { Segment, Province, AggregationLevel, SegmentCode } from "@/services/httpClient"
 
 interface FiltersBarProps {
   level: AggregationLevel

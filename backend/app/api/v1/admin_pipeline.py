@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, BackgroundTasks, status
+from fastapi import APIRouter, Depends, Body, BackgroundTasks, HTTPException, status
 from fastapi.responses import JSONResponse
 from backend.app.core.security import require_roles
 from backend.app.models.schemas import (
@@ -6,7 +6,7 @@ from backend.app.models.schemas import (
     PipelineSyncRequest,
     PipelineSyncStatusResponse
 )
-from backend.app.services.mart_provider import mart_provider
+from backend.app.services.mart_provider import mart_provider, MartValidationError
 from backend.app.services.sync_manager import sync_manager
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -36,10 +36,22 @@ def post_pipeline_switch(
     target_dir: str = Body(default="mart_staging", embed=True, description="Nombre del directorio destino"),
     current_user: dict = Depends(admin_only)
 ):
-    record = mart_provider.atomic_switch(
-        new_dir_name=target_dir,
-        trigger_user=current_user.get("sub", "admin")
-    )
+    try:
+        record = mart_provider.atomic_switch(
+            new_dir_name=target_dir,
+            trigger_user=current_user.get("sub", "admin")
+        )
+    except MartValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": f"El Data Mart '{target_dir}' no superó los controles de integridad.",
+                "errors": exc.report.get("errors", []),
+            },
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
     return {
         "status": "success",
         "message": f"Data Mart conmutado exitosamente a '{target_dir}'.",

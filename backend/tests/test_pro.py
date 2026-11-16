@@ -16,7 +16,8 @@ from backend.app.models.schemas import (
 )
 from backend.app.api.v1.auth import login, logout, get_me
 from backend.app.api.v1.pro import compare_entities, export_csv, export_excel
-from backend.app.services.export_service import export_service
+from backend.app.services.repository import analytics_repository
+from backend.app.services.export_formatter import export_formatter
 from backend.app.services.camel_evaluator import camel_evaluator
 
 def make_mock_request(client_ip="127.0.0.1", user_agent="PyTest-Pro"):
@@ -140,7 +141,13 @@ def test_export_csv_streaming_endpoint():
     assert "attachment; filename=" in stream_res.headers.get("content-disposition", "")
 
     # Consumir generador sincrónico subyacente
-    chunks = list(export_service.stream_csv(req_body))
+    rows_iter = analytics_repository.extract_entity_microdata_rows(
+        entity_ids=req_body.entity_ids,
+        start_date=req_body.start_date,
+        end_date=req_body.end_date,
+        camel_dimension=req_body.camel_dimension
+    )
+    chunks = list(export_formatter.stream_csv(rows_iter))
     full_text = "".join(chunks)
     assert "periodo,ruc,nombre_comercial,razon_social" in full_text
     assert "Jardin Azuayo" in full_text
@@ -161,7 +168,7 @@ def test_export_excel_endpoint():
     assert "spreadsheetml.sheet" in res.media_type
     assert "attachment; filename=" in res.headers.get("content-disposition", "")
     
-    excel_bytes = export_service.generate_excel(req_body)
+    excel_bytes = analytics_repository.export_benchmarking_excel(req_body)
     assert len(excel_bytes) > 5000
 
 def test_logout_clears_cookie():

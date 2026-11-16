@@ -2,15 +2,31 @@ import hashlib
 from typing import Annotated
 from fastapi import APIRouter, Query, Depends, Response, Request
 from backend.app.models.schemas import IndicatorSeriesResponse, AggregationLevel
-from backend.app.services.repository import AnalyticsRepository
+from backend.app.services.repository import analytics_repository as repo
 from backend.app.services.mart_provider import mart_provider
 from backend.app.core.security import get_current_user_optional, normalize_role
 from backend.app.core.errors import APIProblemException
 
 router = APIRouter(prefix="/indicators", tags=["Indicators"])
-repo = AnalyticsRepository()
 
 ALLOWED_ROLES = {"investigador", "auditor", "administrador", "researcher", "admin"}
+
+
+def respond_with_mart_etag(request: Request | None, response: Response | None, etag_seed: str, result: dict):
+    """Calcula ETag ligado al último switch del Data Mart y responde 304 si coincide."""
+    mart_stat = mart_provider.get_status()
+    switch_ts = mart_stat.get("last_switch_timestamp", "")
+    full_seed = f"{etag_seed}:{switch_ts}"
+    etag_val = f'W/"{hashlib.sha256(full_seed.encode()).hexdigest()[:16]}"'
+
+    if request and request.headers.get("if-none-match") == etag_val:
+        return Response(status_code=304, headers={"ETag": etag_val, "Cache-Control": "public, max-age=86400"})
+
+    if response:
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        response.headers["ETag"] = etag_val
+
+    return result
 
 @router.get(
     "/metadata",
@@ -50,22 +66,9 @@ def get_benchmark_matrix(
         )
 
     result = repo.get_benchmark_matrix(rucs=ruc, period=period)
-
-    # Capa de Caché HTTP ETag y Cache-Control con revalidación dinámica
     effective_period = result.get("period", period or "")
-    mart_stat = mart_provider.get_status()
-    switch_ts = mart_stat.get("last_switch_timestamp", "")
-    etag_seed = f"benchmark:{sorted(ruc)}:{effective_period}:{len(result.get('matrix', []))}:{switch_ts}"
-    etag_val = f'W/"{hashlib.sha256(etag_seed.encode()).hexdigest()[:16]}"'
-
-    if request and request.headers.get("if-none-match") == etag_val:
-        return Response(status_code=304, headers={"ETag": etag_val, "Cache-Control": "public, max-age=86400"})
-
-    if response:
-        response.headers["Cache-Control"] = "public, max-age=86400"
-        response.headers["ETag"] = etag_val
-
-    return result
+    etag_seed = f"benchmark:{sorted(ruc)}:{effective_period}:{len(result.get('matrix', []))}"
+    return respond_with_mart_etag(request, response, etag_seed, result)
 
 @router.get(
     "/series",
@@ -96,19 +99,7 @@ def get_indicator_series(
         to_period=to
     )
 
-    # Capa de Caché HTTP ETag y Cache-Control con revalidación dinámica
     p_from = result.get("period_range", {}).get("from", from_ or "")
     p_to = result.get("period_range", {}).get("to", to or "")
-    mart_stat = mart_provider.get_status()
-    switch_ts = mart_stat.get("last_switch_timestamp", "")
-    etag_seed = f"series:{indicator}:{level}:{p_from}:{p_to}:{sorted(segment or [])}:{sorted(province or [])}:{sorted(ruc or [])}:{switch_ts}"
-    etag_val = f'W/"{hashlib.sha256(etag_seed.encode()).hexdigest()[:16]}"'
-
-    if request and request.headers.get("if-none-match") == etag_val:
-        return Response(status_code=304, headers={"ETag": etag_val, "Cache-Control": "public, max-age=86400"})
-
-    if response:
-        response.headers["Cache-Control"] = "public, max-age=86400"
-        response.headers["ETag"] = etag_val
-
-    return result
+    etag_seed = f"series:{indicator}:{level}:{p_from}:{p_to}:{sorted(segment or [])}:{sorted(province or [])}:{sorted(ruc or [])}"
+    return respond_with_mart_etag(request, response, etag_seed, result)

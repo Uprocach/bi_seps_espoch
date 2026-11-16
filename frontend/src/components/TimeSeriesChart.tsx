@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency, formatPercent } from "@/lib/utils"
 import { exportSeriesToCsv } from "@/lib/exportUtils"
-import type { IndicatorSeriesResponse, Series, SeriesPoint } from "@/services/apiClient"
+import type { IndicatorSeriesResponse, Series, SeriesPoint } from "@/services/httpClient"
 
 // Paleta financiera refinada con tonos pastel
 const PASTEL_PALETTE = [

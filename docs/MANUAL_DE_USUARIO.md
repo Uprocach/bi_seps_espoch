@@ -115,7 +115,7 @@ Ubicada en la vista de **Benchmarking**, esta matriz consolida en una sola tabla
 - **Línea Base Nacional:** Promedio ponderado de todo el sector cooperativo ecuatoriano.
 - **Unidades Adaptativas:** Las variables monetarias (ej. Patrimonio Técnico en USD) se expresan automáticamente en dólares (`$`), mientras que los índices de cobertura y morosidad se muestran en porcentaje (`%`) o ratio.
 
-### 5.3. Comparador Multi-Entidad (Benchmarking Pro)
+### 5.3. Comparador Multi-Entidad (Benchmarking Institucional)
 Permite someter a contraste directo hasta **5 cooperativas simultáneas**:
 1. Utilice el buscador predictivo para ingresar el RUC o Razón Social de las cooperativas que desea analizar.
 2. La plataforma generará automáticamente:

@@ -1,5 +1,11 @@
 import { create } from "zustand"
 import type { UserProfile, Role } from "@/types/camel"
+import {
+  fetchCurrentUser,
+  loginWithCredentials,
+  changeUserPassword,
+  logoutSession
+} from "@/services/httpClient"
 
 interface AuthState {
   user: UserProfile | null
@@ -28,18 +34,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   checkAuth: async () => {
     try {
       set({ isLoading: true, error: null })
-      const res = await fetch("/api/v1/auth/me", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include"
-      })
-
-      if (res.ok) {
-        const userData: UserProfile = await res.json()
-        set({ user: userData, isAuthenticated: true, isLoading: false })
-      } else {
-        set({ user: null, isAuthenticated: false, isLoading: false })
-      }
+      const userData = await fetchCurrentUser()
+      set({ user: userData, isAuthenticated: true, isLoading: false })
     } catch {
       set({ user: null, isAuthenticated: false, isLoading: false })
     }
@@ -48,21 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (username: string, password: string, role: Role = "investigador") => {
     try {
       set({ isLoading: true, error: null })
-      const res = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password, role })
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        const msg = errorData.detail || "Credenciales institucionales incorrectas."
-        set({ error: msg, isLoading: false })
-        return false
-      }
-
-      const userData: UserProfile = await res.json()
+      const userData = await loginWithCredentials(username, password, role)
       set({
         user: userData,
         isAuthenticated: true,
@@ -72,7 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
       return true
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error de conexión al autenticar."
+      const msg = err instanceof Error ? err.message : "Credenciales institucionales incorrectas."
       set({ error: msg, isLoading: false })
       return false
     }
@@ -81,25 +63,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   changePassword: async (currentPassword: string, newPassword: string) => {
     try {
       set({ isLoading: true, error: null })
-      const res = await fetch("/api/v1/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        const msg = errorData.detail || "No se pudo actualizar la contraseña."
-        set({ error: msg, isLoading: false })
-        return false
-      }
-
-      const updatedUser: UserProfile = await res.json()
+      const updatedUser = await changeUserPassword(currentPassword, newPassword)
       set({ user: updatedUser, isLoading: false, error: null })
       return true
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error de red al cambiar contraseña."
+      const msg = err instanceof Error ? err.message : "No se pudo actualizar la contraseña."
       set({ error: msg, isLoading: false })
       return false
     }
@@ -108,10 +76,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     try {
       set({ isLoading: true })
-      await fetch("/api/v1/auth/logout", {
-        method: "POST",
-        credentials: "include"
-      })
+      await logoutSession()
+    } catch {
+      // Limpiar estado local incluso si la sesión ya expiró
     } finally {
       set({
         user: null,

@@ -15,6 +15,13 @@ import {
   FileSpreadsheet
 } from "lucide-react"
 import type { AdminUserListItem, Role } from "@/types/camel"
+import {
+  fetchAdminUsers,
+  createAdminUser,
+  bulkImportAdminUsers,
+  resetAdminUserPassword,
+  toggleAdminUserActive
+} from "@/services/httpClient"
 import { PipelineSyncCard } from "@/components/admin/PipelineSyncCard"
 
 
@@ -43,17 +50,11 @@ export const AdminUsersView: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/v1/admin/users", {
-        credentials: "include"
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setUsers(data.users || [])
-      } else {
-        setStatusMessage({ type: "error", text: "Error al cargar el listado de usuarios." })
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Error de conexión al cargar usuarios." })
+      const data = await fetchAdminUsers()
+      setUsers(data.users || [])
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error al cargar el listado de usuarios."
+      setStatusMessage({ type: "error", text: msg })
     } finally {
       setLoading(false)
     }
@@ -69,34 +70,24 @@ export const AdminUsersView: React.FC = () => {
     setStatusMessage(null)
 
     try {
-      const res = await fetch("/api/v1/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          username: newUsername,
-          email: newEmail,
-          full_name: newFullName,
-          role: newRole
-        })
+      await createAdminUser({
+        username: newUsername,
+        email: newEmail,
+        full_name: newFullName,
+        role: newRole
       })
-
-      if (res.ok) {
-        setStatusMessage({
-          type: "success",
-          text: `Usuario ${newUsername} creado exitosamente con contraseña temporal '${newUsername}'.`
-        })
-        setIsNewUserModalOpen(false)
-        setNewUsername("")
-        setNewEmail("")
-        setNewFullName("")
-        fetchUsers()
-      } else {
-        const err = await res.json().catch(() => ({}))
-        setStatusMessage({ type: "error", text: err.detail || "No se pudo crear el usuario." })
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Error de red al registrar usuario." })
+      setStatusMessage({
+        type: "success",
+        text: `Usuario ${newUsername} creado exitosamente con contraseña temporal '${newUsername}'.`
+      })
+      setIsNewUserModalOpen(false)
+      setNewUsername("")
+      setNewEmail("")
+      setNewFullName("")
+      fetchUsers()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo crear el usuario."
+      setStatusMessage({ type: "error", text: msg })
     } finally {
       setIsSubmitting(false)
     }
@@ -138,26 +129,16 @@ export const AdminUsersView: React.FC = () => {
     }
 
     try {
-      const res = await fetch("/api/v1/admin/users/bulk-import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ users: parsedUsers })
+      const data = await bulkImportAdminUsers(parsedUsers)
+      setBulkResult({ imported: data.imported_count, errors: data.errors || [] })
+      setStatusMessage({
+        type: "success",
+        text: `Se importaron ${data.imported_count} usuarios exitosamente. Contraseña temporal asignada: nombre.apellido`
       })
-
-      if (res.ok) {
-        const data = await res.json()
-        setBulkResult({ imported: data.imported_count, errors: data.errors || [] })
-        setStatusMessage({
-          type: "success",
-          text: `Se importaron ${data.imported_count} usuarios exitosamente. Contraseña temporal asignada: nombre.apellido`
-        })
-        fetchUsers()
-      } else {
-        setStatusMessage({ type: "error", text: "Error al procesar la importación masiva." })
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Error de conexión en carga masiva." })
+      fetchUsers()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error al procesar la importación masiva."
+      setStatusMessage({ type: "error", text: msg })
     } finally {
       setIsSubmitting(false)
     }
@@ -169,38 +150,25 @@ export const AdminUsersView: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`/api/v1/admin/users/${userId}/reset-password`, {
-        method: "POST",
-        credentials: "include"
+      await resetAdminUserPassword(userId)
+      setStatusMessage({
+        type: "success",
+        text: `Contraseña de ${username} restablecida a '${username}'. Deberá cambiarla al entrar.`
       })
-      if (res.ok) {
-        setStatusMessage({
-          type: "success",
-          text: `Contraseña de ${username} restablecida a '${username}'. Deberá cambiarla al entrar.`
-        })
-        fetchUsers()
-      } else {
-        setStatusMessage({ type: "error", text: "No se pudo restablecer la contraseña." })
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Error de red al restablecer contraseña." })
+      fetchUsers()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo restablecer la contraseña."
+      setStatusMessage({ type: "error", text: msg })
     }
   }
 
   const handleToggleActive = async (userId: number) => {
     try {
-      const res = await fetch(`/api/v1/admin/users/${userId}/toggle-active`, {
-        method: "PATCH",
-        credentials: "include"
-      })
-      if (res.ok) {
-        fetchUsers()
-      } else {
-        const err = await res.json().catch(() => ({}))
-        setStatusMessage({ type: "error", text: err.detail || "No se pudo modificar el estado." })
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Error de conexión al alternar estado del usuario." })
+      await toggleAdminUserActive(userId)
+      fetchUsers()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo modificar el estado."
+      setStatusMessage({ type: "error", text: msg })
     }
   }
 

@@ -5,6 +5,7 @@
  */
 
 import type { components } from "@/types/api"
+import type { AdminUserListItem, Role, UserProfile } from "@/types/camel"
 
 export type FiltersMetadata = components["schemas"]["FiltersMetadata"]
 export type Segment = components["schemas"]["Segment"]
@@ -64,7 +65,11 @@ async function request<T>(
     throw new Error(errorDetail)
   }
 
-  return res.json()
+  if (res.status === 204) {
+    return undefined as T
+  }
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 // ----------------------------------------------------------------------
@@ -179,8 +184,13 @@ export async function fetchBenchmarkingRanking(
   return request(`/supervision/benchmarking/ranking?${query.toString()}`)
 }
 
-export async function downloadExportCsv(payload: ExportRequestPayload): Promise<void> {
-  const res = await fetch(`${API_BASE}/supervision/export/csv`, {
+async function downloadExportBlob(
+  endpoint: string,
+  payload: ExportRequestPayload,
+  defaultFilename: string,
+  fallbackError: string
+): Promise<void> {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -189,12 +199,12 @@ export async function downloadExportCsv(payload: ExportRequestPayload): Promise<
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}))
-    throw new Error(errorBody.detail || `Error ${res.status}: Fallo al exportar microdatos CSV.`)
+    throw new Error(errorBody.detail || `Error ${res.status}: ${fallbackError}`)
   }
 
   const blob = await res.blob()
   const contentDisposition = res.headers.get("content-disposition")
-  let filename = "espoch_sfps_microdatos.csv"
+  let filename = defaultFilename
   if (contentDisposition) {
     const match = contentDisposition.match(/filename="?([^"]+)"?/)
     if (match && match[1]) {
@@ -212,37 +222,22 @@ export async function downloadExportCsv(payload: ExportRequestPayload): Promise<
   document.body.removeChild(a)
 }
 
+export async function downloadExportCsv(payload: ExportRequestPayload): Promise<void> {
+  return downloadExportBlob(
+    "/supervision/export/csv",
+    payload,
+    "espoch_sfps_microdatos.csv",
+    "Fallo al exportar microdatos CSV."
+  )
+}
+
 export async function downloadExportExcel(payload: ExportRequestPayload): Promise<void> {
-  const res = await fetch(`${API_BASE}/supervision/export/excel`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(payload)
-  })
-
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({}))
-    throw new Error(errorBody.detail || `Error ${res.status}: Fallo al generar reporte Excel.`)
-  }
-
-  const blob = await res.blob()
-  const contentDisposition = res.headers.get("content-disposition")
-  let filename = "espoch_sfps_benchmarking_camel.xlsx"
-  if (contentDisposition) {
-    const match = contentDisposition.match(/filename="?([^"]+)"?/)
-    if (match && match[1]) {
-      filename = match[1]
-    }
-  }
-
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  window.URL.revokeObjectURL(url)
-  document.body.removeChild(a)
+  return downloadExportBlob(
+    "/supervision/export/excel",
+    payload,
+    "espoch_sfps_benchmarking_camel.xlsx",
+    "Fallo al generar reporte Excel."
+  )
 }
 
 // ----------------------------------------------------------------------
@@ -274,4 +269,80 @@ export async function fetchPipelineStatus(): Promise<PipelineStatusResponse> {
 
 export async function fetchPipelineSyncStatus(): Promise<PipelineSyncStatusResponse> {
   return request<PipelineSyncStatusResponse>("/admin/pipeline-sync-status")
+}
+
+export async function triggerPipelineSync(payload: {
+  force: boolean
+  dry_run: boolean
+}): Promise<PipelineSyncStatusResponse> {
+  return request<PipelineSyncStatusResponse>("/admin/pipeline-sync", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  })
+}
+
+// ----------------------------------------------------------------------
+// Autenticación y Gestión de Usuarios Institucionales
+// ----------------------------------------------------------------------
+
+export async function fetchCurrentUser(): Promise<UserProfile> {
+  return request<UserProfile>("/auth/me")
+}
+
+export async function loginWithCredentials(
+  username: string,
+  password: string,
+  role: Role = "investigador"
+): Promise<UserProfile> {
+  return request<UserProfile>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password, role })
+  })
+}
+
+export async function changeUserPassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<UserProfile> {
+  return request<UserProfile>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+  })
+}
+
+export async function logoutSession(): Promise<void> {
+  await request<void>("/auth/logout", { method: "POST" })
+}
+
+export async function fetchAdminUsers(): Promise<{ users: AdminUserListItem[] }> {
+  return request<{ users: AdminUserListItem[] }>("/admin/users")
+}
+
+export async function createAdminUser(payload: {
+  username: string
+  email: string
+  full_name: string
+  role: Role
+}): Promise<unknown> {
+  return request("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  })
+}
+
+export async function bulkImportAdminUsers(
+  users: Array<{ full_name: string; email: string; role: string }>
+): Promise<{ imported_count: number; errors?: string[] }> {
+  return request<{ imported_count: number; errors?: string[] }>("/admin/users/bulk-import", {
+    method: "POST",
+    body: JSON.stringify({ users })
+  })
+}
+
+export async function resetAdminUserPassword(userId: number): Promise<unknown> {
+  return request(`/admin/users/${userId}/reset-password`, { method: "POST" })
+}
+
+export async function toggleAdminUserActive(userId: number): Promise<unknown> {
+  return request(`/admin/users/${userId}/toggle-active`, { method: "PATCH" })
 }

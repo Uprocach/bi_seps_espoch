@@ -84,7 +84,6 @@ class SyncManager:
         iso_start = datetime.now(timezone.utc).isoformat()
         try:
             from etl.seps_crawler import seps_crawler
-            from etl.monthly_pipeline import verify_mart_integrity
             from etl.build_marts import build_marts
 
             # 1. Crawler Web SEPS
@@ -119,20 +118,13 @@ class SyncManager:
 
             build_marts(target_dir=staging_dir)
 
-            # 3. Gatekeeper Validator (Función pura y determinista)
-            self._update_progress("validating", 85, "Ejecutando validaciones matemáticas y de integridad...")
-            val_report = verify_mart_integrity(staging_dir)
-
-            if not val_report["is_valid"]:
-                errors_str = "; ".join(val_report.get("errors", []))
-                raise RuntimeError(f"El Data Mart en mart_staging falló los controles de integridad: {errors_str}")
-
-            # 4. Atomic Switch a producción
-            self._update_progress("validating", 95, "Ejecutando reemplazo atómico Zero-Downtime a producción...")
+            # 3. Validación Gatekeeper + Atomic Switch unificados en MartPathProvider
+            self._update_progress("validating", 85, "Validando integridad y ejecutando reemplazo atómico Zero-Downtime...")
             switch_record = mart_provider.atomic_switch(
                 new_dir_name="mart_staging",
                 trigger_user=trigger_user
             )
+            val_report = switch_record.get("validation_report")
 
             # 5. Finalización exitosa
             now_iso = datetime.now(timezone.utc).isoformat()

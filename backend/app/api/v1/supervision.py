@@ -141,19 +141,7 @@ def export_excel(
     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"espoch_sfps_benchmarking_camel_{timestamp_str}.xlsx"
 
-    compare_req = BenchmarkingCompareRequest(
-        entity_ids=req.entity_ids,
-        start_date=req.start_date,
-        end_date=req.end_date,
-        camel_dimension=req.camel_dimension
-    )
-    compare_res = analytics_repository.compare_entities(compare_req)
-    from backend.app.services.camel_evaluator import camel_evaluator
-    excel_bytes = export_formatter.generate_excel(
-        compare_res=compare_res,
-        indicators_spec=analytics_repository.spec.get("indicators", []),
-        camel_config=camel_evaluator._config
-    )
+    excel_bytes = analytics_repository.export_benchmarking_excel(req)
 
     client_ip = request.client.host if request.client else None
     user_role = user.get("role") or user.get("normalized_role") or "auditor"

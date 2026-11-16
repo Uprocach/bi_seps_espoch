@@ -9,6 +9,7 @@ import {
   fetchIndicatorSeries,
   fetchEntities,
   fetchBenchmarkingCompare,
+  fetchBenchmarkingRanking,
   fetchAuditLogs,
   fetchPipelineStatus,
   fetchPipelineSyncStatus,
@@ -48,6 +49,18 @@ export function useBenchmarkingCompareQuery(payload: BenchmarkingCompareRequest,
     queryFn: () => fetchBenchmarkingCompare(payload),
     enabled: enabled && payload.entity_ids.length > 0,
     staleTime: 5 * 60 * 1000
+  })
+}
+
+export function useBenchmarkingRankingQuery(
+  params: Parameters<typeof fetchBenchmarkingRanking>[0],
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ["benchmarking_ranking", params],
+    queryFn: () => fetchBenchmarkingRanking(params),
+    enabled,
+    staleTime: 3 * 60 * 1000
   })
 }
 

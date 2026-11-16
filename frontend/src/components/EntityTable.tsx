@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { formatCurrency } from "@/lib/utils"
 import { exportEntitiesToCsv } from "@/lib/exportUtils"
-import type { EntitySummary } from "@/services/apiClient"
+import type { EntitySummary } from "@/services/httpClient"
 
 interface EntityTableProps {
   entities: EntitySummary[]

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   RefreshCw,
   Globe,
@@ -11,134 +12,75 @@ import {
   Loader2,
   Layers
 } from "lucide-react"
-import type { PipelineSyncStatus, PipelineStatus } from "@/types/camel"
+import { triggerPipelineSync } from "@/services/httpClient"
+import { usePipelineStatusQuery, usePipelineSyncStatusQuery } from "@/hooks/useIndicatorsQueries"
+import type { PipelineSyncStatus } from "@/types/camel"
 
 export const PipelineSyncCard: React.FC = () => {
-  const [syncStatus, setSyncStatus] = useState<PipelineSyncStatus | null>(null)
-  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(null)
+  const queryClient = useQueryClient()
   const [isTriggering, setIsTriggering] = useState(false)
   const [forceDownload, setForceDownload] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null)
+  const [pollingEnabled, setPollingEnabled] = useState(false)
+  const prevSyncStatusRef = useRef<string | undefined>(undefined)
 
-  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const { data: pipelineStatusData } = usePipelineStatusQuery()
+  const { data: syncStatusData } = usePipelineSyncStatusQuery(pollingEnabled)
 
-  const fetchSyncStatus = async () => {
-    try {
-      const res = await fetch("/api/v1/admin/pipeline-sync-status", {
-        credentials: "include"
-      })
-      if (res.ok) {
-        const data: PipelineSyncStatus = await res.json()
-        setSyncStatus(data)
-        return data
-      }
-    } catch {
-      // Ignorar errores de red transitorios en polling
-    }
-    return null
-  }
+  const pipelineStatus = pipelineStatusData ?? null
+  const syncStatus = (syncStatusData as PipelineSyncStatus | undefined) ?? null
 
-  const fetchPipelineStatus = async () => {
-    try {
-      const res = await fetch("/api/v1/admin/pipeline-status", {
-        credentials: "include"
-      })
-      if (res.ok) {
-        const data: PipelineStatus = await res.json()
-        setPipelineStatus(data)
-      }
-    } catch {
-      // Ignorar errores transitorios
-    }
-  }
+  const isRunning =
+    syncStatus?.status === "downloading" ||
+    syncStatus?.status === "extracting" ||
+    syncStatus?.status === "validating"
 
   useEffect(() => {
-    fetchSyncStatus()
-    fetchPipelineStatus()
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
+    setPollingEnabled(isRunning)
+    const prev = prevSyncStatusRef.current
+    const curr = syncStatus?.status
+    if (
+      prev &&
+      (prev === "downloading" || prev === "extracting" || prev === "validating") &&
+      (curr === "success" || curr === "idle" || curr === "failed")
+    ) {
+      queryClient.invalidateQueries({ queryKey: ["pipelineStatus"] })
+      if (curr === "success" && syncStatus) {
+        window.dispatchEvent(new CustomEvent("pipeline-data-updated", { detail: syncStatus }))
+        setActionFeedback({
+          type: "success",
+          text: `¡Sincronización exitosa! Nuevo periodo contable ${syncStatus.detected_period || "actualizado"} disponible en todos los paneles.`
+        })
       }
     }
-  }, [])
-
-  // Iniciar o detener polling según si la tarea está en ejecución
-  useEffect(() => {
-    const isRunning =
-      syncStatus?.status === "downloading" ||
-      syncStatus?.status === "extracting" ||
-      syncStatus?.status === "validating"
-
-    if (isRunning) {
-      if (!pollingRef.current) {
-        pollingRef.current = setInterval(async () => {
-          const current = await fetchSyncStatus()
-          if (
-            current &&
-            (current.status === "success" || current.status === "idle" || current.status === "failed")
-          ) {
-            fetchPipelineStatus()
-            if (current.status === "success") {
-              window.dispatchEvent(new CustomEvent("pipeline-data-updated", { detail: current }))
-              setActionFeedback({
-                type: "success",
-                text: `¡Sincronización exitosa! Nuevo periodo contable ${current.detected_period || "actualizado"} disponible en todos los paneles.`
-              })
-            }
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current)
-              pollingRef.current = null
-            }
-          }
-        }, 2500)
-      }
-    } else {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-        pollingRef.current = null
-      }
-    }
-  }, [syncStatus?.status])
+    prevSyncStatusRef.current = curr
+  }, [isRunning, syncStatus, queryClient])
 
   const handleTriggerSync = async (dryRun: boolean = false) => {
     setIsTriggering(true)
     setActionFeedback(null)
 
     try {
-      const res = await fetch("/api/v1/admin/pipeline-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          force: forceDownload,
-          dry_run: dryRun
-        })
+      const data = await triggerPipelineSync({
+        force: forceDownload,
+        dry_run: dryRun
       })
-
-      if (res.status === 202 || res.status === 200) {
-        const data: PipelineSyncStatus = await res.json()
-        setSyncStatus(data)
-        setActionFeedback({
-          type: "info",
-          text: dryRun
-            ? data.message
-            : "Sincronización desatendida iniciada en segundo plano. Monitoreando progreso..."
-        })
-        if (!dryRun) {
-          fetchPipelineStatus()
-        }
-      } else {
-        const err = await res.json().catch(() => ({}))
-        setActionFeedback({
-          type: "error",
-          text: err.detail || "Error al disparar la sincronización web."
-        })
+      queryClient.setQueryData(["pipelineSyncStatus"], data)
+      setActionFeedback({
+        type: "info",
+        text: dryRun
+          ? data.message
+          : "Sincronización desatendida iniciada en segundo plano. Monitoreando progreso..."
+      })
+      if (!dryRun) {
+        setPollingEnabled(true)
+        queryClient.invalidateQueries({ queryKey: ["pipelineStatus"] })
       }
-    } catch {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error al disparar la sincronización web."
       setActionFeedback({
         type: "error",
-        text: "Error de conexión con el servidor backend."
+        text: msg
       })
     } finally {
       setIsTriggering(false)

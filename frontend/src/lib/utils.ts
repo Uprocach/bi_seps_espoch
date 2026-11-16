@@ -24,6 +24,33 @@ export function formatPercent(value: number | null | undefined, decimals = 2): s
   return `${value.toFixed(decimals)}%`
 }
 
+export type IndicatorUnit = "usd" | "ratio" | "percent" | (string & {})
+
+/**
+ * Formatea el valor de un indicador financiero según su unidad ("usd", "ratio", "percent").
+ */
+export function formatIndicatorValue(
+  value: number | null | undefined,
+  unit?: IndicatorUnit | null,
+  options?: { decimals?: number; signed?: boolean; fallback?: string }
+): string {
+  const { decimals = 2, signed = false, fallback = "N/D" } = options ?? {}
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return fallback
+  }
+
+  const sign = signed ? (value >= 0 ? "+" : "-") : value < 0 ? "-" : ""
+  const abs = Math.abs(value)
+
+  if (unit === "usd") {
+    return `${sign}${formatCurrency(abs)}`
+  }
+  if (unit === "ratio") {
+    return `${sign}${abs.toFixed(decimals)}`
+  }
+  return `${sign}${abs.toFixed(decimals)}%`
+}
+
 /**
  * Limpia y destaca el nombre comercial distintivo de una cooperativa
  * eliminando los prefijos genéricos largos (e.g. 'COOPERATIVA DE AHORRO Y CREDITO')

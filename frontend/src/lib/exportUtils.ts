@@ -1,4 +1,4 @@
-import type { IndicatorSeriesResponse, EntitySummary } from "@/services/apiClient"
+import type { IndicatorSeriesResponse, EntitySummary } from "@/services/httpClient"
 
 export function exportToCsv(data: Record<string, any>[], filename: string) {
   if (!data || data.length === 0) return

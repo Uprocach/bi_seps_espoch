@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { fetchAuditLogs, type AuditLogItem } from "@/services/apiClient"
+import { fetchAuditLogs, type AuditLogItem } from "@/services/httpClient"
 
 export const AuditLogsView: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogItem[]>([])

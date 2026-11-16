@@ -5,7 +5,9 @@ Pruebas de persistencia dual (SQLite local y PostgreSQL Supabase) - ADR-0006.
 import tempfile
 from pathlib import Path
 import pytest
+from backend.app.services.dual_db import DualDatabaseAdapter
 from backend.app.services.user_db_service import UserDBService
+from backend.app.services.audit_service import AuditService
 
 
 def test_sqlite_fallback_initialization():
@@ -27,27 +29,26 @@ def test_sqlite_fallback_initialization():
 
 def test_postgres_url_normalization_and_routing():
     """Valida la detección y normalización de cadenas de conexión postgres:// y postgresql://."""
-    service_pg = UserDBService.__new__(UserDBService)
     url_pg = "postgres://postgres:secret@db.xyz.supabase.co:5432/postgres"
-    norm = service_pg._normalize_database_url(url_pg)
+    norm = DualDatabaseAdapter.normalize_database_url(url_pg)
     assert norm == "postgresql://postgres:secret@db.xyz.supabase.co:5432/postgres"
 
     url_std = "postgresql://postgres:secret@db.xyz.supabase.co:5432/postgres"
-    assert service_pg._normalize_database_url(url_std) == url_std
-    assert service_pg._normalize_database_url(None) is None
+    assert DualDatabaseAdapter.normalize_database_url(url_std) == url_std
+    assert DualDatabaseAdapter.normalize_database_url(None) is None
 
 
 def test_prepare_sql_conversion():
     """Valida la traducción de placeholders ? a %s según el motor de base de datos."""
     with tempfile.TemporaryDirectory() as tmpdir:
         test_db = Path(tmpdir) / "test_sql.db"
-        service_sqlite = UserDBService(db_path=test_db, database_url=None)
+        adapter_sqlite = DualDatabaseAdapter(db_path=test_db, database_url=None)
 
         query = "SELECT * FROM users WHERE username = ? AND is_active = ?;"
-        assert service_sqlite._prepare_sql(query) == query
+        assert adapter_sqlite.prepare_sql(query) == query
 
-        service_sqlite.is_postgres = True
-        assert service_sqlite._prepare_sql(query) == "SELECT * FROM users WHERE username = %s AND is_active = %s;"
+        adapter_sqlite.is_postgres = True
+        assert adapter_sqlite.prepare_sql(query) == "SELECT * FROM users WHERE username = %s AND is_active = %s;"
 
 
 def test_dual_service_crud_cycle_sqlite():
@@ -85,19 +86,19 @@ def test_dual_service_crud_cycle_sqlite():
         user_inactive = service.get_user_by_id(user["id"])
         assert user_inactive["is_active"] == 0
 
-        # Insertar y listar logs de auditoría
-        log_id = service.insert_audit_log(
-            timestamp="2026-11-12T10:00:00Z",
+        # Insertar y listar eventos de auditoría vía AuditTrail sobre el mismo adaptador
+        audit = AuditService(adapter=service.adapter)
+        event = audit.log_event(
             user_sub="investigador.test",
             user_role="investigador",
             action="BENCHMARKING_COMPARE",
             resource="/api/v1/supervision/benchmarking/compare",
-            details_json='{"coops": 2}',
+            details={"coops": 2},
             ip_address="127.0.0.1",
             user_agent="pytest-client"
         )
-        assert log_id is not None
+        assert event["action"] == "BENCHMARKING_COMPARE"
 
-        logs, total = service.list_audit_logs(user_sub="investigador.test")
+        logs, total = audit.query_events(user_sub="investigador.test")
         assert total >= 1
         assert logs[0]["action"] == "BENCHMARKING_COMPARE"

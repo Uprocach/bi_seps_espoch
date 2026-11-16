@@ -61,3 +61,33 @@ def test_pipeline_gatekeeper_validation_passes_on_production_mart():
     """Valida que el Gatekeeper de integridad matemática y referencial apruebe el Data Mart activo."""
     mart_path = mart_provider.mart_dir
     assert validate_mart_dir(mart_path) is True
+
+
+def test_atomic_switch_rejects_unvalidated_staging_and_route_returns_422(tmp_path, monkeypatch):
+    """Valida que atomic_switch y POST /admin/pipeline-switch bloqueen staging incompleto con 422."""
+    import pytest
+    from backend.app.core.config import settings
+    from backend.app.services.mart_provider import MartPathProvider, MartValidationError
+
+    processed_dir = tmp_path / "processed"
+    mart_dir = processed_dir / "mart"
+    bad_staging = processed_dir / "mart_staging"
+    mart_dir.mkdir(parents=True)
+    bad_staging.mkdir(parents=True)
+
+    monkeypatch.setattr(settings, "DATA_MART_DIR", mart_dir)
+
+    provider = MartPathProvider()
+    with pytest.raises(MartValidationError):
+        provider.atomic_switch(new_dir_name="mart_staging", trigger_user="admin.test")
+
+    assert not (processed_dir / "CURRENT_MART").exists()
+
+    token = create_access_token({"sub": "admin.test", "role": "administrador"})
+    res = client.post(
+        "/api/v1/admin/pipeline-switch",
+        json={"target_dir": "mart_staging"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 422
+    assert "errors" in res.json()["detail"]
