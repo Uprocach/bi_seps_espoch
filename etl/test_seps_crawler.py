@@ -62,6 +62,36 @@ class TestSepsCrawlerQuarterly(unittest.TestCase):
             saldos = sorted(r[6] for r in rows)
             self.assertEqual(saldos, [1200.0, 2500.75])
 
+    def test_sync_processes_both_monthly_and_quarterly_bases(self):
+        from etl.seps_crawler import QUARTERLY_SEGMENTS
+
+        crawler = SepsCrawler()
+        crawler.discover_downloads = lambda: {  # type: ignore[method-assign]
+            "eeff_mensuales_bases": {2026: 3401},
+            "eeff_trimestrales_bases": {2026: 3443},
+            "patrimonio_tecnico": {},
+            "eeff_mensuales_reportes": {},
+            "eeff_trimestrales_reportes": {},
+            "latest_year_available": 2026,
+            "total_links_found": 2,
+        }
+        crawler.download_file = lambda d_id, dest, **kwargs: dest  # type: ignore[method-assign]
+        extracted_calls = []
+
+        def fake_extract(zip_path, out_parquet, segments_filter=None):
+            extracted_calls.append((zip_path.name, out_parquet.name, segments_filter))
+            return {"records": 10, "min_date": "2026-01-01", "max_date": "2026-09-30", "file_size": 100, "parquet_path": str(out_parquet)}
+
+        crawler.extract_eeff_b11_to_parquet = fake_extract  # type: ignore[method-assign]
+
+        res = crawler.sync(force=True)
+        self.assertEqual(res["status"], "success")
+        types = {f["type"] for f in res["updated_files"]}
+        self.assertIn("b11_balances", types)
+        self.assertIn("b11_trimestrales", types)
+        trim_call = next(c for c in extracted_calls if c[1].startswith("eeff_trim_"))
+        self.assertEqual(trim_call[2], QUARTERLY_SEGMENTS)
+
 
 if __name__ == "__main__":
     unittest.main()

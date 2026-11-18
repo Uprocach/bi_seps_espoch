@@ -277,21 +277,31 @@ class SepsCrawler:
         catalog = self.discover_downloads()
         latest_web_year = catalog["latest_year_available"]
 
-        # Determinar periodos actuales en data/interim
-        existing_years = set()
-        for p in INTERIM_EEFF_DIR.glob("*.parquet"):
-            m = re.search(r'(20\d{2})', p.name)
-            if m:
-                existing_years.add(int(m.group(1)))
+        # Determinar periodos actuales en data/interim (mensual y trimestral)
+        def _max_existing_year(directory: Path) -> int:
+            years = set()
+            if directory.exists():
+                for p in directory.glob("*.parquet"):
+                    m = re.search(r'(20\d{2})', p.name)
+                    if m:
+                        years.add(int(m.group(1)))
+            return max(years) if years else 2018
 
-        current_max_year = max(existing_years) if existing_years else 2018
+        current_max_year = _max_existing_year(INTERIM_EEFF_DIR)
+        current_max_trim_year = _max_existing_year(INTERIM_TRIM_DIR)
+        latest_trim_web_year = max(catalog.get("eeff_trimestrales_bases", {}).keys(), default=0)
 
         download_plan_years = []
         for y, d_id in sorted(catalog["eeff_mensuales_bases"].items()):
             if force or y > current_max_year or y == latest_web_year:
                 download_plan_years.append((y, d_id))
 
-        if not download_plan_years and not force:
+        download_plan_trim_years = []
+        for y, d_id in sorted(catalog.get("eeff_trimestrales_bases", {}).items()):
+            if force or y > current_max_trim_year or y == latest_trim_web_year:
+                download_plan_trim_years.append((y, d_id))
+
+        if not download_plan_years and not download_plan_trim_years and not force:
             report("idle", 100, f"El sistema ya cuenta con los datos más recientes ({current_max_year}).")
             return {
                 "status": "already_up_to_date",
@@ -301,10 +311,10 @@ class SepsCrawler:
             }
 
         updated_files = []
-        total_steps = len(download_plan_years) + 1  # balances + patrimonio
+        total_steps = len(download_plan_years) + len(download_plan_trim_years) + 1  # balances + trimestrales + patrimonio
         current_step = 0
 
-        # Descarga e ingesta de balances B11
+        # Descarga e ingesta de balances B11 mensuales (Segmentos 1-3)
         for year, download_id in download_plan_years:
             current_step += 1
             pct = 10 + int((current_step / total_steps) * 60)
@@ -318,6 +328,29 @@ class SepsCrawler:
             meta = self.extract_eeff_b11_to_parquet(raw_zip, out_parquet)
             updated_files.append({
                 "type": "b11_balances",
+                "year": year,
+                "download_id": download_id,
+                **meta
+            })
+
+        # Descarga e ingesta de balances B11 trimestrales (Segmentos 4 y 5)
+        for year, download_id in download_plan_trim_years:
+            current_step += 1
+            pct = 10 + int((current_step / total_steps) * 60)
+            report("downloading", pct, f"Descargando balances trimestrales año {year} (ID {download_id})...")
+
+            raw_zip = RAW_TRIM_DIR / f"descarga_{download_id}.zip"
+            self.download_file(download_id, raw_zip)
+
+            report("extracting", pct + 5, f"Transformando balances trimestrales (Seg 4-5) año {year} a Parquet...")
+            out_parquet = INTERIM_TRIM_DIR / f"eeff_trim_{year}.parquet"
+            meta = self.extract_eeff_b11_to_parquet(
+                raw_zip,
+                out_parquet,
+                segments_filter=QUARTERLY_SEGMENTS,
+            )
+            updated_files.append({
+                "type": "b11_trimestrales",
                 "year": year,
                 "download_id": download_id,
                 **meta
