@@ -148,12 +148,18 @@ def verify_mart_integrity(target_dir: Path) -> Dict[str, Any]:
         else:
             report["errors"].append(f"Morosidad nacional fuera de rango plausible: {morosidad_val}%")
 
-        seg4_active = con.execute(
-            f"SELECT COUNT(*) FROM read_parquet('{paths['dim_entities.parquet']}') WHERE segment = 'SEGMENTO_4' AND is_active = TRUE"
-        ).fetchone()[0]
-        seg5_active = con.execute(
-            f"SELECT COUNT(*) FROM read_parquet('{paths['dim_entities.parquet']}') WHERE segment = 'SEGMENTO_5' AND is_active = TRUE"
-        ).fetchone()[0]
+        quarterly_counts = dict(
+            con.execute(
+                f"""
+                SELECT segment, COUNT(*)
+                FROM read_parquet('{paths['dim_entities.parquet']}')
+                WHERE segment IN ('SEGMENTO_4', 'SEGMENTO_5') AND is_active = TRUE
+                GROUP BY segment
+                """
+            ).fetchall()
+        )
+        seg4_active = quarterly_counts.get("SEGMENTO_4", 0)
+        seg5_active = quarterly_counts.get("SEGMENTO_5", 0)
 
         if seg4_active > 0 and seg5_active > 0:
             report["checks_passed"] += 1

@@ -266,16 +266,6 @@ export function buildBarComparisonData(
   return items
 }
 
-export function formatSegmentFilterLabel(segment: {
-  label: string
-  reporting_frequency: "monthly" | "quarterly"
-}): { shortLabel: string; frequencyBadge: string | null } {
-  return {
-    shortLabel: segment.label.replace("Segmento ", "Seg "),
-    frequencyBadge: segment.reporting_frequency === "quarterly" ? "Trimestral" : null
-  }
-}
-
 export function resolveNeutralTrafficLightLabel(value: number | null | undefined): string | null {
   return value === null || value === undefined ? "Sin dato" : null
 }

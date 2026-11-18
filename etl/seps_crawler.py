@@ -97,16 +97,11 @@ class SepsCrawler:
             if latest_idx == idx_pat:
                 if year not in catalog["patrimonio_tecnico"]:
                     catalog["patrimonio_tecnico"][year] = d_id
-            elif latest_idx == idx_trim:
-                sub_chunk = prev_chunk[idx_trim:]
+            else:
+                section_prefix = "eeff_trimestrales" if latest_idx == idx_trim else "eeff_mensuales"
+                sub_chunk = prev_chunk[latest_idx:]
                 is_base = sub_chunk.rfind("base") > sub_chunk.rfind("reporte")
-                target_key = "eeff_trimestrales_bases" if is_base else "eeff_trimestrales_reportes"
-                if year not in catalog[target_key]:
-                    catalog[target_key][year] = d_id
-            elif latest_idx == idx_men:
-                sub_chunk = prev_chunk[idx_men:]
-                is_base = sub_chunk.rfind("base") > sub_chunk.rfind("reporte")
-                target_key = "eeff_mensuales_bases" if is_base else "eeff_mensuales_reportes"
+                target_key = f"{section_prefix}_{'bases' if is_base else 'reportes'}"
                 if year not in catalog[target_key]:
                     catalog[target_key][year] = d_id
 
@@ -285,23 +280,41 @@ class SepsCrawler:
                     m = re.search(r'(20\d{2})', p.name)
                     if m:
                         years.add(int(m.group(1)))
-            return max(years) if years else 2018
+            return max(years) if years else 0
 
-        current_max_year = _max_existing_year(INTERIM_EEFF_DIR)
-        current_max_trim_year = _max_existing_year(INTERIM_TRIM_DIR)
-        latest_trim_web_year = max(catalog.get("eeff_trimestrales_bases", {}).keys(), default=0)
+        streams = [
+            (
+                "eeff_mensuales_bases",
+                _max_existing_year(INTERIM_EEFF_DIR),
+                RAW_EEFF_DIR,
+                INTERIM_EEFF_DIR,
+                "eeff_men",
+                None,
+                "b11_balances",
+                "balances B11",
+            ),
+            (
+                "eeff_trimestrales_bases",
+                _max_existing_year(INTERIM_TRIM_DIR),
+                RAW_TRIM_DIR,
+                INTERIM_TRIM_DIR,
+                "eeff_trim",
+                QUARTERLY_SEGMENTS,
+                "b11_trimestrales",
+                "balances trimestrales (Seg 4-5)",
+            ),
+        ]
 
-        download_plan_years = []
-        for y, d_id in sorted(catalog["eeff_mensuales_bases"].items()):
-            if force or y > current_max_year or y == latest_web_year:
-                download_plan_years.append((y, d_id))
+        download_tasks = []
+        for cat_key, max_local_year, raw_dir, interim_dir, prefix, seg_filter, ftype, label in streams:
+            entries = catalog.get(cat_key, {})
+            latest_stream_year = max(entries.keys(), default=0)
+            for y, d_id in sorted(entries.items()):
+                if force or y > max_local_year or y == latest_stream_year:
+                    download_tasks.append((y, d_id, raw_dir, interim_dir, prefix, seg_filter, ftype, label))
 
-        download_plan_trim_years = []
-        for y, d_id in sorted(catalog.get("eeff_trimestrales_bases", {}).items()):
-            if force or y > current_max_trim_year or y == latest_trim_web_year:
-                download_plan_trim_years.append((y, d_id))
-
-        if not download_plan_years and not download_plan_trim_years and not force:
+        current_max_year = streams[0][1]
+        if not download_tasks and not force:
             report("idle", 100, f"El sistema ya cuenta con los datos más recientes ({current_max_year}).")
             return {
                 "status": "already_up_to_date",
@@ -311,46 +324,21 @@ class SepsCrawler:
             }
 
         updated_files = []
-        total_steps = len(download_plan_years) + len(download_plan_trim_years) + 1  # balances + trimestrales + patrimonio
-        current_step = 0
+        total_steps = len(download_tasks) + 1  # balances + patrimonio
 
-        # Descarga e ingesta de balances B11 mensuales (Segmentos 1-3)
-        for year, download_id in download_plan_years:
-            current_step += 1
-            pct = 10 + int((current_step / total_steps) * 60)
-            report("downloading", pct, f"Descargando balances B11 año {year} (ID {download_id})...")
+        # Descarga e ingesta unificada de balances B11 (mensuales y trimestrales)
+        for step_idx, (year, download_id, raw_dir, interim_dir, prefix, seg_filter, ftype, label) in enumerate(download_tasks, start=1):
+            pct = 10 + int((step_idx / total_steps) * 60)
+            report("downloading", pct, f"Descargando {label} año {year} (ID {download_id})...")
 
-            raw_zip = RAW_EEFF_DIR / f"descarga_{download_id}.zip"
+            raw_zip = raw_dir / f"descarga_{download_id}.zip"
             self.download_file(download_id, raw_zip)
 
-            report("extracting", pct + 5, f"Transformando balances B11 año {year} a Parquet...")
-            out_parquet = INTERIM_EEFF_DIR / f"eeff_men_{year}.parquet"
-            meta = self.extract_eeff_b11_to_parquet(raw_zip, out_parquet)
+            report("extracting", pct + 5, f"Transformando {label} año {year} a Parquet...")
+            out_parquet = interim_dir / f"{prefix}_{year}.parquet"
+            meta = self.extract_eeff_b11_to_parquet(raw_zip, out_parquet, segments_filter=seg_filter)
             updated_files.append({
-                "type": "b11_balances",
-                "year": year,
-                "download_id": download_id,
-                **meta
-            })
-
-        # Descarga e ingesta de balances B11 trimestrales (Segmentos 4 y 5)
-        for year, download_id in download_plan_trim_years:
-            current_step += 1
-            pct = 10 + int((current_step / total_steps) * 60)
-            report("downloading", pct, f"Descargando balances trimestrales año {year} (ID {download_id})...")
-
-            raw_zip = RAW_TRIM_DIR / f"descarga_{download_id}.zip"
-            self.download_file(download_id, raw_zip)
-
-            report("extracting", pct + 5, f"Transformando balances trimestrales (Seg 4-5) año {year} a Parquet...")
-            out_parquet = INTERIM_TRIM_DIR / f"eeff_trim_{year}.parquet"
-            meta = self.extract_eeff_b11_to_parquet(
-                raw_zip,
-                out_parquet,
-                segments_filter=QUARTERLY_SEGMENTS,
-            )
-            updated_files.append({
-                "type": "b11_trimestrales",
+                "type": ftype,
                 "year": year,
                 "download_id": download_id,
                 **meta

@@ -8,9 +8,9 @@ import {
   resolveEffectiveChartIndicator,
   buildChartSeriesData,
   buildBarComparisonData,
-  formatSegmentFilterLabel,
   resolveNeutralTrafficLightLabel
 } from "./benchmarkingModel"
+import { formatSegmentFilterLabel } from "./utils"
 import type {
   BenchmarkingCompareResponse,
   BenchmarkingIndicatorRow,
