@@ -40,9 +40,9 @@ jobs:
       - name: Run SEPS Monthly Pipeline
         run: |
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            python etl/monthly_pipeline.py --force
+            python etl/monthly_pipeline.py --sync-web --force
           else
-            python etl/monthly_pipeline.py
+            python etl/monthly_pipeline.py --sync-web
           fi
 
       - name: Verify Mart Integrity & Mathematical Assertions
