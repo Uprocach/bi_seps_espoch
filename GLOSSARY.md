@@ -9,10 +9,12 @@ Términos y conceptos normativos oficiales utilizados en la plataforma analític
 - **Estructura B11**: Formato mensual obligatorio de balance financiero remitido a la SEPS.
 - **COAC**: Cooperativa de Ahorro y Crédito.
 - **Segmentos SEPS**:
-  - `SEGMENTO_1`: Cooperativas con activos mayores a USD 80 millones.
-  - `SEGMENTO_1_MUTUALISTA`: Asociaciones mutualistas de ahorro y crédito.
-  - `SEGMENTO_2`: Cooperativas con activos entre USD 20M y 80M.
-  - `SEGMENTO_3`, `SEGMENTO_4`, `SEGMENTO_5`: Cooperativas medianas y pequeñas.
+  - `SEGMENTO_1`: Cooperativas con activos mayores a USD 80 millones (reporte mensual, CUC a 6 dígitos).
+  - `SEGMENTO_1_MUTUALISTA`: Asociaciones mutualistas de ahorro y crédito (reporte mensual, CUC a 6 dígitos).
+  - `SEGMENTO_2`: Cooperativas con activos entre USD 20M y 80M (reporte mensual, CUC a 6 dígitos).
+  - `SEGMENTO_3`: Cooperativas con activos entre USD 5M y 20M (reporte mensual, CUC a 6 dígitos).
+  - `SEGMENTO_4`: Cooperativas con activos entre USD 1M y 5M (reporte **trimestral**, CUC a 4 dígitos, sin publicación de Patrimonio Técnico).
+  - `SEGMENTO_5`: Cooperativas con activos menores a USD 1M (reporte **trimestral**, CUC a 4 dígitos, sin publicación de Patrimonio Técnico).
 
 ## 2. Marco Analítico CAMEL
 Metodología de supervisión y calificación de riesgo financiero:
@@ -24,6 +26,8 @@ Metodología de supervisión y calificación de riesgo financiero:
 
 ## 3. Convenciones Matemáticas
 - **Ratio de Sumas**: Todas las agregaciones a nivel segmento o país se computan como $\frac{\sum \text{numeradores}}{\sum \text{denominadores}}$, nunca como promedio de ratios individuales.
+- **Agregado Nacional Mensual (`EC`)**: Serie agregada a nivel país calculada exclusivamente sobre los segmentos de reporte mensual (`SEGMENTO_1`, `SEGMENTO_1_MUTUALISTA`, `SEGMENTO_2`, `SEGMENTO_3`), para preservar la continuidad estadística sin saltos trimestrales.
+- **Entidad Activa**: Cooperativa o mutualista que registra reporte en el último periodo disponible correspondiente a su propia frecuencia de reporte (`monthly` o `quarterly`).
 - **Polaridad**:
   - `higher_is_better`: Mientras más alto sea el valor, mejor es la salud financiera (ej. ROA, Liquidez, Cobertura).
   - `lower_is_better`: Mientras menor sea el valor, mejor es la salud financiera (ej. Morosidad, Gastos Operativos).
