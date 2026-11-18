@@ -116,6 +116,30 @@ def test_indicators_series_segment():
     assert len(seg1.points) == 3
     assert seg1.points[-1].value > 90.0
 
+
+def test_quarterly_segments_metadata_and_series():
+    """Valida que SEGMENTO_4 y SEGMENTO_5 expongan periodicidad quarterly, entidades activas y cortes trimestrales."""
+    res = Response()
+    meta = FiltersMetadata.model_validate(get_metadata_filters(res))
+    seg4 = next(s for s in meta.segments if s.code == "SEGMENTO_4")
+    seg5 = next(s for s in meta.segments if s.code == "SEGMENTO_5")
+    assert seg4.reporting_frequency == "quarterly"
+    assert seg5.reporting_frequency == "quarterly"
+    assert seg4.entity_count > 0
+    assert seg5.entity_count > 0
+
+    series_data = get_indicator_series(
+        indicator="morosidad_cartera_total",
+        level="segment",
+        segment=["SEGMENTO_4", "SEGMENTO_5"],
+        from_="2025-01",
+        to="2025-09",
+    )
+    validated = IndicatorSeriesResponse.model_validate(series_data)
+    assert len(validated.series) == 2
+    s4_series = next(s for s in validated.series if s.key == "SEGMENTO_4")
+    assert [p.period for p in s4_series.points] == ["2025-03", "2025-06", "2025-09"]
+
 def test_indicators_series_entity_public_and_accredited_access():
     """Valida que la consulta de series a nivel entidad sea accesible tanto para público como para acreditados."""
     ruc = "0190155722001"

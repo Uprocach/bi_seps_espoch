@@ -265,3 +265,13 @@ export function buildBarComparisonData(
 
   return items
 }
+
+export function formatSegmentFilterLabel(segment: {
+  label: string
+  reporting_frequency: "monthly" | "quarterly"
+}): { shortLabel: string; frequencyBadge: string | null } {
+  return {
+    shortLabel: segment.label.replace("Segmento ", "Seg "),
+    frequencyBadge: segment.reporting_frequency === "quarterly" ? "Trimestral" : null
+  }
+}

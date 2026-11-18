@@ -7,7 +7,8 @@ import {
   resolveSegmentProvinceFilter,
   resolveEffectiveChartIndicator,
   buildChartSeriesData,
-  buildBarComparisonData
+  buildBarComparisonData,
+  formatSegmentFilterLabel
 } from "./benchmarkingModel"
 import type {
   BenchmarkingCompareResponse,
@@ -101,4 +102,15 @@ test("buildChartSeriesData and buildBarComparisonData shape series and bars clea
   assert.equal(bars.length, 3)
   assert.equal(bars[0].name, "Media Nacional")
   assert.equal(bars[2].value, 16.8)
+})
+
+test("formatSegmentFilterLabel exposes Trimestral badge only for quarterly segments", () => {
+  assert.deepEqual(
+    formatSegmentFilterLabel({ label: "Segmento 1", reporting_frequency: "monthly" }),
+    { shortLabel: "Seg 1", frequencyBadge: null }
+  )
+  assert.deepEqual(
+    formatSegmentFilterLabel({ label: "Segmento 4", reporting_frequency: "quarterly" }),
+    { shortLabel: "Seg 4", frequencyBadge: "Trimestral" }
+  )
 })

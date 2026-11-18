@@ -4,11 +4,11 @@
 
 **Blocked by:** 01: Ingesta y extracción histórica de Bases Trimestrales SEPS (Segmentos 4 y 5)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] La dimensión de segmentos registra `reporting_frequency = 'quarterly'` para `SEGMENTO_4` y `SEGMENTO_5` y `'monthly'` para los demás segmentos.
-- [ ] Los cubos analíticos de entidad y segmento incluyen las series trimestrales de `SEGMENTO_4` y `SEGMENTO_5` (cortes `03`, `06`, `09`, `12`) manteniendo en `NULL` las fichas de 6 dígitos (incluida Ficha 52 de Liquidez Inmediata, Fichas 19–27 y Fichas 39–50) y las Fichas 58–63 de Patrimonio Técnico.
-- [ ] El Agregado Nacional Mensual (`EC`) excluye los segmentos trimestrales para evitar saltos de sierra cada 3 meses.
-- [ ] El atributo de Entidad Activa (`is_active`) se calcula contra el último periodo disponible de la propia frecuencia del segmento, manteniendo activas a las cooperativas trimestrales cuando los datos mensuales avanzan entre trimestres.
-- [ ] Los endpoints de filtros y series devuelven `SEGMENTO_4` y `SEGMENTO_5` con su `reporting_frequency` y conteo de entidades activas, y los selectores del Dashboard Macro muestran un distintivo `Trimestral`.
-- [ ] Pruebas en las costuras ETL, Backend y Frontend verifican el comportamiento completo.
+- [x] La dimensión de segmentos registra `reporting_frequency = 'quarterly'` para `SEGMENTO_4` y `SEGMENTO_5` y `'monthly'` para los demás segmentos.
+- [x] Los cubos analíticos de entidad y segmento incluyen las series trimestrales de `SEGMENTO_4` y `SEGMENTO_5` (cortes `03`, `06`, `09`, `12`) manteniendo en `NULL` las fichas de 6 dígitos (incluida Ficha 52 de Liquidez Inmediata, Fichas 19–27 y Fichas 39–50) y las Fichas 58–63 de Patrimonio Técnico.
+- [x] El Agregado Nacional Mensual (`EC`) excluye los segmentos trimestrales para evitar saltos de sierra cada 3 meses.
+- [x] El atributo de Entidad Activa (`is_active`) se calcula contra el último periodo disponible de la propia frecuencia del segmento, manteniendo activas a las cooperativas trimestrales cuando los datos mensuales avanzan entre trimestres.
+- [x] Los endpoints de filtros y series devuelven `SEGMENTO_4` y `SEGMENTO_5` con su `reporting_frequency` y conteo de entidades activas, y los selectores del Dashboard Macro muestran un distintivo `Trimestral`.
+- [x] Pruebas en las costuras ETL, Backend y Frontend verifican el comportamiento completo.

@@ -3,6 +3,7 @@ import { Filter, Layers, Globe, Building } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import type { Segment, Province, AggregationLevel, SegmentCode } from "@/services/httpClient"
+import { formatSegmentFilterLabel } from "@/lib/benchmarkingModel"
 
 interface FiltersBarProps {
   level: AggregationLevel
@@ -63,18 +64,30 @@ export const FiltersBar: React.FC<FiltersBarProps> = ({
           <div className="flex flex-wrap items-center gap-1.5">
             {segments.map((s) => {
               const isChecked = selectedSegments.includes(s.code)
+              const { shortLabel, frequencyBadge } = formatSegmentFilterLabel(s)
               return (
                 <button
                   key={s.code}
                   type="button"
                   onClick={() => onToggleSegment(s.code)}
-                  className={`text-xs px-2.5 py-1 rounded-md border font-medium transition-colors ${
+                  className={`text-xs px-2.5 py-1 rounded-md border font-medium transition-colors inline-flex items-center gap-1.5 ${
                     isChecked
                       ? "bg-emerald-700 text-white border-emerald-700 shadow-sm"
                       : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  {s.label.replace("Segmento ", "Seg ")}
+                  <span>{shortLabel}</span>
+                  {frequencyBadge && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                        isChecked
+                          ? "bg-emerald-800/80 text-emerald-100"
+                          : "bg-amber-50 text-amber-700 border border-amber-200/80"
+                      }`}
+                    >
+                      {frequencyBadge}
+                    </span>
+                  )}
                 </button>
               )
             })}
