@@ -265,3 +265,7 @@ export function buildBarComparisonData(
 
   return items
 }
+
+export function resolveNeutralTrafficLightLabel(value: number | null | undefined): string | null {
+  return value === null || value === undefined ? "Sin dato" : null
+}

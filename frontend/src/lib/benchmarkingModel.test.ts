@@ -7,8 +7,10 @@ import {
   resolveSegmentProvinceFilter,
   resolveEffectiveChartIndicator,
   buildChartSeriesData,
-  buildBarComparisonData
+  buildBarComparisonData,
+  resolveNeutralTrafficLightLabel
 } from "./benchmarkingModel"
+import { formatSegmentFilterLabel } from "./utils"
 import type {
   BenchmarkingCompareResponse,
   BenchmarkingIndicatorRow,
@@ -101,4 +103,21 @@ test("buildChartSeriesData and buildBarComparisonData shape series and bars clea
   assert.equal(bars.length, 3)
   assert.equal(bars[0].name, "Media Nacional")
   assert.equal(bars[2].value, 16.8)
+})
+
+test("formatSegmentFilterLabel exposes Trimestral badge only for quarterly segments", () => {
+  assert.deepEqual(
+    formatSegmentFilterLabel({ label: "Segmento 1", reporting_frequency: "monthly" }),
+    { shortLabel: "Seg 1", frequencyBadge: null }
+  )
+  assert.deepEqual(
+    formatSegmentFilterLabel({ label: "Segmento 4", reporting_frequency: "quarterly" }),
+    { shortLabel: "Seg 4", frequencyBadge: "Trimestral" }
+  )
+})
+
+test("resolveNeutralTrafficLightLabel returns Sin dato for null indicator values", () => {
+  assert.equal(resolveNeutralTrafficLightLabel(null), "Sin dato")
+  assert.equal(resolveNeutralTrafficLightLabel(undefined), "Sin dato")
+  assert.equal(resolveNeutralTrafficLightLabel(12.5), null)
 })

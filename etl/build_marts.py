@@ -12,6 +12,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 INTERIM_DIR = Path(os.getenv("INTERIM_DIR", str(BASE_DIR / "data" / "interim" / "situacion_financiera" / "estados_financieros_mensuales")))
+INTERIM_TRIM_DIR = Path(os.getenv("INTERIM_TRIM_DIR", str(BASE_DIR / "data" / "interim" / "situacion_financiera" / "estados_financieros_trimestrales")))
 MART_DIR = Path(os.getenv("MART_DIR", str(BASE_DIR / "data" / "processed" / "mart")))
 SPEC_PATH = BASE_DIR / "config" / "indicators_spec.json"
 
@@ -46,13 +47,19 @@ SEGMENTS_DEF = [
     {"code": "SEGMENTO_1", "label": "Segmento 1", "reporting_frequency": "monthly"},
     {"code": "SEGMENTO_2", "label": "Segmento 2", "reporting_frequency": "monthly"},
     {"code": "SEGMENTO_3", "label": "Segmento 3", "reporting_frequency": "monthly"},
-    {"code": "SEGMENTO_4", "label": "Segmento 4", "reporting_frequency": "monthly"},
-    {"code": "SEGMENTO_5", "label": "Segmento 5", "reporting_frequency": "monthly"},
+    {"code": "SEGMENTO_4", "label": "Segmento 4", "reporting_frequency": "quarterly"},
+    {"code": "SEGMENTO_5", "label": "Segmento 5", "reporting_frequency": "quarterly"},
     {"code": "SEGMENTO_1_MUTUALISTA", "label": "Mutualistas Segmento 1", "reporting_frequency": "monthly"}
 ]
 
-def build_marts(target_dir: Path | None = None):
+def build_marts(
+    target_dir: Path | None = None,
+    interim_dir: Path | None = None,
+    interim_trim_dir: Path | None = None,
+):
     out_dir = Path(target_dir) if target_dir else Path(os.getenv("MART_DIR", str(BASE_DIR / "data" / "processed" / "mart")))
+    men_dir = Path(interim_dir) if interim_dir else INTERIM_DIR
+    trim_dir = Path(interim_trim_dir) if interim_trim_dir else INTERIM_TRIM_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
     con.execute("PRAGMA threads=4;")
@@ -72,14 +79,37 @@ def build_marts(target_dir: Path | None = None):
     for s in SEGMENTS_DEF:
         con.execute(f"INSERT INTO dim_segments VALUES ('{s['code']}', '{s['label']}', '{s['reporting_frequency']}');")
 
-    interim_pattern = str(INTERIM_DIR / "*.parquet").replace("\\", "/")
+    interim_pattern = str(men_dir / "*.parquet").replace("\\", "/")
+    trim_files = list(trim_dir.glob("*.parquet")) if trim_dir.exists() else []
+    if trim_files:
+        interim_trim_pattern = str(trim_dir / "*.parquet").replace("\\", "/")
+        source_sql = f"""
+        (
+            SELECT * FROM read_parquet('{interim_pattern}', union_by_name=true)
+            UNION ALL BY NAME
+            SELECT * FROM read_parquet('{interim_trim_pattern}', union_by_name=true)
+            WHERE upper(trim(segmento)) IN ('SEGMENTO 4', 'SEGMENTO 5')
+        )
+        """
+    else:
+        source_sql = f"read_parquet('{interim_pattern}', union_by_name=true)"
+
+    src_cols = {row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {source_sql}").fetchall()}
+    fecha_expr = 'COALESCE("\ufefffecha_de_corte", fecha_de_corte)::DATE' if "\ufefffecha_de_corte" in src_cols else "fecha_de_corte::DATE"
+    if "saldo_usd" in src_cols and "saldo__usd_" in src_cols:
+        saldo_expr = "COALESCE(saldo_usd, saldo__usd_, 0)"
+    elif "saldo_usd" in src_cols:
+        saldo_expr = "COALESCE(saldo_usd, 0)"
+    else:
+        saldo_expr = "COALESCE(saldo__usd_, 0)"
+
     print(f"[2/6] Escaneando y pivoteando balances B11...")
     
     con.execute(f"""
     CREATE TABLE raw_balances AS
     SELECT 
-        COALESCE("\ufefffecha_de_corte", fecha_de_corte)::DATE AS fecha,
-        STRFTIME(COALESCE("\ufefffecha_de_corte", fecha_de_corte)::DATE, '%Y-%m') AS period,
+        {fecha_expr} AS fecha,
+        STRFTIME({fecha_expr}, '%Y-%m') AS period,
         ruc,
         ANY_VALUE(razon_social) AS razon_social,
         CASE 
@@ -92,103 +122,102 @@ def build_marts(target_dir: Path | None = None):
             ELSE 'SEGMENTO_3'
         END AS segment,
         SUBSTRING(ruc, 1, 2) AS province_code,
+        BOOL_OR(LENGTH(TRIM(cuenta)) >= 6) AS has_6_digit_cuc,
         -- Cuentas generales
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '1') AS c1,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '11') AS c11,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '14') AS c14,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '1499') AS c1499,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ({impr_sql_list})) AS cartera_improductiva,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '21') AS c21,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '1') AS c1,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '11') AS c11,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '14') AS c14,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '1499') AS c1499,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ({impr_sql_list})) AS cartera_improductiva,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '21') AS c21,
         -- AUD-07: Depósitos a corto plazo (1 a 90 días y vista) según Ficha 52 SEPS
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('2101', '2102', '210305', '210310')) AS depo_corto_plazo,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('2101', '2102', '2103', '2104', '2105', '22', '23', '24', '25', '26', '27', '28')) AS pasivo_con_costo,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '3') AS c3,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '4') AS c4,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '45') AS c45,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '5') AS c5,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '3603') AS c3603,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '3604') AS c3604,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '16') AS c16,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '17') AS c17,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '18') AS c18,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '19') AS c19,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '1901') AS c1901,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '4501') AS c4501,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '51') AS c51,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '41') AS c41,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '52') AS c52,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '54') AS c54,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '42') AS c42,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '53') AS c53,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '43') AS c43,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '44') AS c44,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '56') AS c56,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '5104') AS c5104,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('2101', '2102', '210305', '210310')) AS depo_corto_plazo,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('2101', '2102', '2103', '2104', '2105', '22', '23', '24', '25', '26', '27', '28')) AS pasivo_con_costo,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '3') AS c3,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '4') AS c4,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '45') AS c45,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '5') AS c5,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '3603') AS c3603,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '3604') AS c3604,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '16') AS c16,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '17') AS c17,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '18') AS c18,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '19') AS c19,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '1901') AS c1901,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '4501') AS c4501,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '51') AS c51,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '41') AS c41,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '52') AS c52,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '54') AS c54,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '42') AS c42,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '53') AS c53,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '43') AS c43,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '44') AS c44,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '56') AS c56,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '5104') AS c5104,
         -- Morosidades específicas
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1425','1433','1441','1449','1457','1465')) AS impr_comer_pri,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1401','1409','1417','1425','1433','1441','1449','1457','1465')) AS bruta_comer_pri,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1426','1434','1442','1450','1458','1466')) AS impr_consu_pri,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1402','1410','1418','1426','1434','1442','1450','1458','1466')) AS bruta_consu_pri,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1427','1435','1443','1451','1459','1467')) AS impr_inmob,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1403','1411','1419','1427','1435','1443','1451','1459','1467')) AS bruta_inmob,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1428','1436','1444','1452','1460','1468')) AS impr_micro,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1404','1412','1420','1428','1436','1444','1452','1460','1468')) AS bruta_micro,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1429','1437','1445','1453','1461','1469')) AS impr_prod,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1405','1413','1421','1429','1437','1445','1453','1461','1469')) AS bruta_prod,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1430','1438','1446','1454','1462','1470')) AS impr_comer_ord,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1406','1414','1422','1430','1438','1446','1454','1462','1470')) AS bruta_comer_ord,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1431','1439','1447','1455','1463','1471')) AS impr_consu_ord,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1407','1415','1423','1431','1439','1447','1455','1463','1471')) AS bruta_consu_ord,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1432','1440','1448','1456','1464','1472')) AS impr_viv_pub,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1408','1416','1424','1432','1440','1448','1456','1464','1472')) AS bruta_viv_pub,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1479','1481','1483','1485','1487','1489')) AS impr_educ,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1473','1475','1477','1479','1481','1483','1485','1487','1489')) AS bruta_educ,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1426','1434','1442','1450','1458','1466','1431','1439','1447','1455','1463','1471')) AS impr_consu,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1402','1410','1418','1426','1434','1442','1450','1458','1466','1407','1415','1423','1431','1439','1447','1455','1463','1471')) AS bruta_consu,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1425','1433','1441','1449','1457','1465')) AS impr_comer_pri,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1401','1409','1417','1425','1433','1441','1449','1457','1465')) AS bruta_comer_pri,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1426','1434','1442','1450','1458','1466')) AS impr_consu_pri,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1402','1410','1418','1426','1434','1442','1450','1458','1466')) AS bruta_consu_pri,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1427','1435','1443','1451','1459','1467')) AS impr_inmob,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1403','1411','1419','1427','1435','1443','1451','1459','1467')) AS bruta_inmob,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1428','1436','1444','1452','1460','1468')) AS impr_micro,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1404','1412','1420','1428','1436','1444','1452','1460','1468')) AS bruta_micro,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1429','1437','1445','1453','1461','1469')) AS impr_prod,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1405','1413','1421','1429','1437','1445','1453','1461','1469')) AS bruta_prod,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1430','1438','1446','1454','1462','1470')) AS impr_comer_ord,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1406','1414','1422','1430','1438','1446','1454','1462','1470')) AS bruta_comer_ord,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1431','1439','1447','1455','1463','1471')) AS impr_consu_ord,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1407','1415','1423','1431','1439','1447','1455','1463','1471')) AS bruta_consu_ord,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1432','1440','1448','1456','1464','1472')) AS impr_viv_pub,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1408','1416','1424','1432','1440','1448','1456','1464','1472')) AS bruta_viv_pub,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1479','1481','1483','1485','1487','1489')) AS impr_educ,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1473','1475','1477','1479','1481','1483','1485','1487','1489')) AS bruta_educ,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1426','1434','1442','1450','1458','1466','1431','1439','1447','1455','1463','1471')) AS impr_consu,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1402','1410','1418','1426','1434','1442','1450','1458','1466','1407','1415','1423','1431','1439','1447','1455','1463','1471')) AS bruta_consu,
         -- Provisiones de cartera específicas (CUC 1499xx en valor absoluto)
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149905')) AS prov_prod,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149910')) AS prov_consu,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149915')) AS prov_inmob,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149920')) AS prov_micro,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149925')) AS prov_prod_esp,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149930')) AS prov_comer_ord,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149935')) AS prov_consu_ord,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149940')) AS prov_viv_pub,
-        ABS(SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '149955')) AS prov_educ,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149905')) AS prov_prod,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149910')) AS prov_consu,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149915')) AS prov_inmob,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149920')) AS prov_micro,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149925')) AS prov_prod_esp,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149930')) AS prov_comer_ord,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149935')) AS prov_consu_ord,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149940')) AS prov_viv_pub,
+        ABS(SUM({saldo_expr}) FILTER (WHERE cuenta = '149955')) AS prov_educ,
         -- Cuentas de intereses de cartera por vencer (5104xx)
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510405') AS c510405,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510410') AS c510410,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510415') AS c510415,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510420') AS c510420,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510421') AS c510421,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510425') AS c510425,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510426') AS c510426,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510427') AS c510427,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510428') AS c510428,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510430') AS c510430,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta = '510435') AS c510435,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510405') AS c510405,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510410') AS c510410,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510415') AS c510415,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510420') AS c510420,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510421') AS c510421,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510425') AS c510425,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510426') AS c510426,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510427') AS c510427,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510428') AS c510428,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510430') AS c510430,
+        SUM({saldo_expr}) FILTER (WHERE cuenta = '510435') AS c510435,
         -- Carteras por vencer específicas
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1401','1409','1417')) AS xvenc_comer_pri,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1402','1410','1418')) AS xvenc_consu_pri,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1403','1411','1419')) AS xvenc_inmob,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1404','1412','1420')) AS xvenc_micro,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1405','1413','1421')) AS xvenc_prod,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1406','1414','1422')) AS xvenc_comer_ord,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1407','1415','1423')) AS xvenc_consu_ord,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1408','1416','1424')) AS xvenc_viv_pub,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1473','1475','1477')) AS xvenc_educ,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1409','1410','1411','1412','1413','1414','1415','1416')) AS xvenc_refi,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1417','1418','1419','1420','1421','1422','1423','1424','1477')) AS xvenc_rest,
-        SUM(COALESCE(saldo_usd, saldo__usd_, 0)) FILTER (WHERE cuenta IN ('1401','1409','1417','1402','1410','1418','1403','1411','1419','1404','1412','1420','1405','1413','1421','1406','1414','1422','1407','1415','1423','1408','1416','1424','1473','1475','1477')) AS cartera_x_vencer
-    FROM read_parquet('{interim_pattern}', union_by_name=true)
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1401','1409','1417')) AS xvenc_comer_pri,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1402','1410','1418')) AS xvenc_consu_pri,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1403','1411','1419')) AS xvenc_inmob,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1404','1412','1420')) AS xvenc_micro,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1405','1413','1421')) AS xvenc_prod,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1406','1414','1422')) AS xvenc_comer_ord,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1407','1415','1423')) AS xvenc_consu_ord,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1408','1416','1424')) AS xvenc_viv_pub,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1473','1475','1477')) AS xvenc_educ,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1409','1410','1411','1412','1413','1414','1415','1416')) AS xvenc_refi,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1417','1418','1419','1420','1421','1422','1423','1424','1477')) AS xvenc_rest,
+        SUM({saldo_expr}) FILTER (WHERE cuenta IN ('1401','1409','1417','1402','1410','1418','1403','1411','1419','1404','1412','1420','1405','1413','1421','1406','1414','1422','1407','1415','1423','1408','1416','1424','1473','1475','1477')) AS cartera_x_vencer
+    FROM {source_sql}
     WHERE ruc IS NOT NULL AND ruc != ''
     GROUP BY 1, 2, 3
     """)
 
     print("[3/6] Construyendo dimensión de entidades (dim_entities)...")
-    latest_period = con.execute("SELECT MAX(period) FROM raw_balances;").fetchone()[0]
-    
-    con.execute(f"""
+    con.execute("""
     CREATE TABLE dim_entities AS
     WITH agg AS (
         SELECT 
@@ -201,10 +230,11 @@ def build_marts(target_dir: Path | None = None):
         FROM raw_balances
         GROUP BY ruc
     ),
-    latest AS (
-        SELECT ruc, c1 AS total_assets_usd
-        FROM raw_balances
-        WHERE period = '{latest_period}'
+    latest_by_freq AS (
+        SELECT s.reporting_frequency, MAX(r.period) AS max_period
+        FROM raw_balances r
+        JOIN dim_segments s ON r.segment = s.code
+        GROUP BY s.reporting_frequency
     )
     SELECT 
         a.ruc,
@@ -213,12 +243,14 @@ def build_marts(target_dir: Path | None = None):
         a.segment,
         a.province_code,
         p.name AS province_name,
-        COALESCE(l.total_assets_usd, 0) AS total_assets_usd,
+        COALESCE(rb.c1, 0) AS total_assets_usd,
         a.first_period,
         a.last_period,
-        (a.last_period = '{latest_period}') AS is_active
+        (a.last_period = f.max_period) AS is_active
     FROM agg a
-    LEFT JOIN latest l ON a.ruc = l.ruc
+    JOIN dim_segments s ON a.segment = s.code
+    JOIN latest_by_freq f ON s.reporting_frequency = f.reporting_frequency
+    LEFT JOIN raw_balances rb ON a.ruc = rb.ruc AND a.last_period = rb.period
     LEFT JOIN dim_provinces p ON a.province_code = p.code;
     """)
 
@@ -593,9 +625,12 @@ def build_marts(target_dir: Path | None = None):
     FROM monthly_components
     UNION ALL
     -- Ficha 52: Liquidez Inmediata (AUD-07: Fondos Disponibles / Depósitos a Corto Plazo)
+    -- Requiere subcuentas CUC de 6 dígitos (210305, 210310); NULL si la entidad solo reporta a 4 dígitos (ADR-0007).
     SELECT period, ruc, segment, province_code, 'liquidez_inmediata' AS indicator_id,
-        CASE WHEN depo_corto_plazo > 0 THEN ROUND((c11 / depo_corto_plazo) * 100, 4) ELSE NULL END AS value,
-        ROUND(c11, 2) AS numerator, ROUND(depo_corto_plazo, 2) AS denominator, 1 AS entity_count
+        CASE WHEN has_6_digit_cuc AND depo_corto_plazo > 0 THEN ROUND((c11 / depo_corto_plazo) * 100, 4) ELSE NULL END AS value,
+        CASE WHEN has_6_digit_cuc THEN ROUND(c11, 2) ELSE NULL::DOUBLE END AS numerator,
+        CASE WHEN has_6_digit_cuc THEN ROUND(depo_corto_plazo, 2) ELSE NULL::DOUBLE END AS denominator,
+        1 AS entity_count
     FROM monthly_components
     UNION ALL
     -- Ficha 53: Cartera Improductiva Descubierta sobre Activos
@@ -694,7 +729,7 @@ def build_marts(target_dir: Path | None = None):
     GROUP BY period, segment, indicator_id;
     """)
 
-    # Hechos País (Consolidado nacional de todas las cooperativas)
+    # Hechos País (Consolidado nacional exclusivamente de segmentos mensuales - ADR-0007)
     con.execute("""
     CREATE TABLE fct_indicators_country_monthly AS
     SELECT 
@@ -717,6 +752,7 @@ def build_marts(target_dir: Path | None = None):
         ROUND(SUM(denominator), 2) AS denominator,
         COUNT(DISTINCT ruc) AS entity_count
     FROM fct_indicators_entity_monthly
+    WHERE segment IN (SELECT code FROM dim_segments WHERE reporting_frequency = 'monthly')
     GROUP BY period, indicator_id;
     """)
 

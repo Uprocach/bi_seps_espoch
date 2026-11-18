@@ -477,7 +477,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({ workbench }) => {
 
                   const assetsFormatted = row.total_assets_usd
                     ? `$${(row.total_assets_usd / 1_000_000).toFixed(1)}M`
-                    : "N/D"
+                    : "Sin dato"
 
                   const diffCountry = row.diff_country
                   const isDiffPositive =
@@ -509,7 +509,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({ workbench }) => {
                         {assetsFormatted}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                        {formatIndicatorValue(row.value, rankingData?.indicator?.unit)}
+                        {formatIndicatorValue(row.value, rankingData?.indicator?.unit, { fallback: "Sin dato" })}
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         <TrafficLightBadge
@@ -535,7 +535,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({ workbench }) => {
                             })}
                           </span>
                         ) : (
-                          "N/D"
+                          "Sin dato"
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center">

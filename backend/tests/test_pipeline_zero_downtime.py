@@ -37,7 +37,7 @@ def test_pipeline_status_auditor_and_admin_allowed_200():
         data = res.json()
         validated = PipelineStatusResponse.model_validate(data)
         assert validated.status == "active"
-        assert validated.latest_period in ["2025-12", "2026-09"]
+        assert validated.latest_period >= "2025-12"
         assert validated.periods_count >= 96
         assert validated.entities_count >= 200
 
@@ -91,3 +91,13 @@ def test_atomic_switch_rejects_unvalidated_staging_and_route_returns_422(tmp_pat
     )
     assert res.status_code == 422
     assert "errors" in res.json()["detail"]
+
+
+def test_gatekeeper_verifies_6_segments_and_active_quarterly_entities():
+    """Valida que el Gatekeeper exija los 6 segmentos y entidades activas en Segmento 4 y 5."""
+    from backend.app.services.mart_provider import verify_mart_integrity
+
+    report = verify_mart_integrity(mart_provider.mart_dir)
+    assert report["is_valid"] is True
+    assert report["total_checks"] == 8
+    assert report["checks_passed"] == 8

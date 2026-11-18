@@ -152,17 +152,13 @@ export const EntityPickerModal: React.FC<EntityPickerModalProps> = ({
               const isAlready = selectedRucs.includes(cand.ruc)
               const cleanName = formatCoopName(cand.razon_social)
               const segLabel =
-                cand.segment === "SEGMENTO_1"
-                  ? "Segmento 1"
-                  : cand.segment === "SEGMENTO_2"
-                  ? "Segmento 2"
-                  : cand.segment === "SEGMENTO_3"
-                  ? "Segmento 3"
-                  : "Mutualista"
+                cand.segment === "SEGMENTO_1_MUTUALISTA"
+                  ? "Mutualista"
+                  : cand.segment.replace("SEGMENTO_", "Segmento ")
 
               const assetsStr = cand.total_assets_usd
                 ? `$${(cand.total_assets_usd / 1_000_000).toFixed(1)}M`
-                : "N/D"
+                : "Sin dato"
 
               return (
                 <div

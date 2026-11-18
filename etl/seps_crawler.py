@@ -26,9 +26,12 @@ PORTAL_URL = "https://estadisticas.seps.gob.ec/index.php/estadisticas-sfps/"
 DOWNLOAD_BASE_URL = "https://estadisticas.seps.gob.ec/?sdm_process_download=1&download_id="
 
 RAW_EEFF_DIR = BASE_DIR / "data" / "raw" / "Situación Financiera" / "Bases de Datos" / "Estados Financieros Mensuales"
+RAW_TRIM_DIR = BASE_DIR / "data" / "raw" / "Situación Financiera" / "Bases de Datos" / "Estados Financieros Trimestrales"
 RAW_PAT_DIR = BASE_DIR / "data" / "raw" / "Situación Financiera" / "Reportes" / "Patrimonio técnico"
 INTERIM_EEFF_DIR = BASE_DIR / "data" / "interim" / "situacion_financiera" / "estados_financieros_mensuales"
+INTERIM_TRIM_DIR = BASE_DIR / "data" / "interim" / "situacion_financiera" / "estados_financieros_trimestrales"
 INTERIM_PAT_DIR = BASE_DIR / "data" / "interim" / "patrimonio_tecnico"
+QUARTERLY_SEGMENTS = ["SEGMENTO 4", "SEGMENTO 5"]
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (ESPOCH-DI-060 Bot)"
 
@@ -59,8 +62,10 @@ class SepsCrawler:
 
         catalog: Dict[str, Any] = {
             "eeff_mensuales_bases": {},      # { año: download_id }
+            "eeff_trimestrales_bases": {},   # { año: download_id }
             "patrimonio_tecnico": {},        # { año: download_id }
             "eeff_mensuales_reportes": {},   # { año: download_id }
+            "eeff_trimestrales_reportes": {},# { año: download_id }
             "latest_year_available": 0,
             "total_links_found": 0
         }
@@ -77,21 +82,28 @@ class SepsCrawler:
                 continue
             year = int(year_match.group(1))
 
-            # Extraer contexto previo para determinar la sección exacta
+            # Extraer contexto previo y determinar la sección más reciente
             pos = match.start()
-            prev_chunk = html[max(0, pos - 2000):pos].lower()
+            prev_chunk = html[max(0, pos - 3000):pos].lower()
 
-            if "patrimonio" in prev_chunk:
+            idx_pat = prev_chunk.rfind("patrimonio")
+            idx_men = prev_chunk.rfind("estados financieros mensuales")
+            idx_trim = prev_chunk.rfind("estados financieros trimestrales")
+            latest_idx = max(idx_pat, idx_men, idx_trim)
+
+            if latest_idx == -1:
+                continue
+
+            if latest_idx == idx_pat:
                 if year not in catalog["patrimonio_tecnico"]:
                     catalog["patrimonio_tecnico"][year] = d_id
-            elif "estados financieros mensuales" in prev_chunk:
-                if "base" in prev_chunk:
-                    if year not in catalog["eeff_mensuales_bases"]:
-                        catalog["eeff_mensuales_bases"][year] = d_id
-                else:
-                    if year not in catalog["eeff_mensuales_reportes"]:
-                        catalog["eeff_mensuales_reportes"][year] = d_id
-                        catalog["eeff_mensuales_reportes"][year] = d_id
+            else:
+                section_prefix = "eeff_trimestrales" if latest_idx == idx_trim else "eeff_mensuales"
+                sub_chunk = prev_chunk[latest_idx:]
+                is_base = sub_chunk.rfind("base") > sub_chunk.rfind("reporte")
+                target_key = f"{section_prefix}_{'bases' if is_base else 'reportes'}"
+                if year not in catalog[target_key]:
+                    catalog[target_key][year] = d_id
 
             if year > catalog["latest_year_available"]:
                 catalog["latest_year_available"] = year
@@ -143,49 +155,71 @@ class SepsCrawler:
     def extract_eeff_b11_to_parquet(
         self,
         zip_path: Path,
-        output_parquet: Path
+        output_parquet: Path,
+        segments_filter: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        Extrae el archivo tabular B11 de un ZIP y genera un Parquet canónico de 7 columnas optimizado con DuckDB.
+        Extrae el archivo tabular B11 (.txt o .csv) de un ZIP y genera un Parquet canónico de 7 columnas optimizado con DuckDB.
+        Soporta variantes históricas de encabezados (SALDO (USD) vs SALDO(USD), BOM, columnas extra, fechas YYYY-M-D).
         """
         output_parquet.parent.mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_dir_path = Path(tmpdir)
-            txt_file_path: Optional[Path] = None
+            data_file_path: Optional[Path] = None
 
             with zipfile.ZipFile(zip_path, "r") as z:
                 for name in z.namelist():
-                    if name.lower().endswith(".txt"):
+                    if name.lower().endswith((".txt", ".csv")):
                         z.extract(name, tmp_dir_path)
-                        txt_file_path = tmp_dir_path / name
+                        data_file_path = tmp_dir_path / name
                         break
 
-            if not txt_file_path or not txt_file_path.exists():
-                raise FileNotFoundError(f"No se encontró un archivo .txt con balances en el ZIP: {zip_path}")
+            if not data_file_path or not data_file_path.exists():
+                raise FileNotFoundError(f"No se encontró un archivo .txt o .csv con balances en el ZIP: {zip_path}")
 
             con = duckdb.connect()
             con.execute("PRAGMA threads=4;")
 
+            csv_source = f"read_csv('{data_file_path.as_posix()}', delim='\\t', header=true, quote='\"', all_varchar=true)"
+            cols = [row[0] for row in con.execute(f"DESCRIBE SELECT * FROM {csv_source}").fetchall()]
+            col_map = {c.lstrip("\ufeff").strip().upper(): c for c in cols}
+
+            fecha_col = col_map.get("FECHA DE CORTE", "FECHA DE CORTE")
+            saldo_col = col_map.get("SALDO (USD)") or col_map.get("SALDO(USD)") or "SALDO (USD)"
+            segmento_col = col_map.get("SEGMENTO", "SEGMENTO")
+            ruc_col = col_map.get("RUC", "RUC")
+            razon_col = col_map.get("RAZON SOCIAL", "RAZON SOCIAL")
+            cuenta_col = col_map.get("CUENTA", "CUENTA")
+            desc_col = col_map.get("DESCRIPCION CUENTA", "DESCRIPCION CUENTA")
+
+            where_clause = ""
+            if segments_filter:
+                normalized_filters = ", ".join(
+                    f"'{s.strip().upper()}'" for s in segments_filter
+                )
+                where_clause = f'WHERE upper(trim(replace("{segmento_col}", \'"\', \'\'))) IN ({normalized_filters})'
+
             # Transformación canónica garantizada:
             # - Limpieza de comillas
-            # - Conversión de fecha a TIMESTAMP_NS
+            # - Conversión de fecha (YYYY-MM-DD o YYYY-M-D) a TIMESTAMP_NS
             # - Reemplazo de coma decimal por punto en montos numéricos
             # - Sustitución de nulos o guiones por 0.0
             query = f"""
             COPY (
                 SELECT 
-                    strptime(replace("FECHA DE CORTE", '"', ''), '%Y-%m-%d')::TIMESTAMP_NS AS fecha_de_corte,
-                    replace("SEGMENTO", '"', '') AS segmento,
-                    replace("RUC", '"', '') AS ruc,
-                    replace("RAZON SOCIAL", '"', '') AS razon_social,
-                    replace("CUENTA", '"', '') AS cuenta,
-                    replace("DESCRIPCION CUENTA", '"', '') AS descripcion_cuenta,
+                    TRY_CAST(replace("{fecha_col}", '"', '') AS DATE)::TIMESTAMP_NS AS fecha_de_corte,
+                    replace("{segmento_col}", '"', '') AS segmento,
+                    replace("{ruc_col}", '"', '') AS ruc,
+                    replace("{razon_col}", '"', '') AS razon_social,
+                    replace("{cuenta_col}", '"', '') AS cuenta,
+                    replace("{desc_col}", '"', '') AS descripcion_cuenta,
                     COALESCE(
-                        TRY_CAST(REPLACE(REPLACE(REPLACE(replace("SALDO (USD)", '"', ''), ' ', ''), ',', '.'), '-', '0') AS DOUBLE),
+                        TRY_CAST(REPLACE(REPLACE(REPLACE(replace("{saldo_col}", '"', ''), ' ', ''), ',', '.'), '-', '0') AS DOUBLE),
                         0.0
                     ) AS saldo__usd_
-                FROM read_csv('{txt_file_path.as_posix()}', delim='\\t', header=true, quote='\"', all_varchar=true)
+                FROM {csv_source}
+                {where_clause}
             ) TO '{output_parquet.as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD);
             """
             con.execute(query)
@@ -238,21 +272,49 @@ class SepsCrawler:
         catalog = self.discover_downloads()
         latest_web_year = catalog["latest_year_available"]
 
-        # Determinar periodos actuales en data/interim
-        existing_years = set()
-        for p in INTERIM_EEFF_DIR.glob("*.parquet"):
-            m = re.search(r'(20\d{2})', p.name)
-            if m:
-                existing_years.add(int(m.group(1)))
+        # Determinar periodos actuales en data/interim (mensual y trimestral)
+        def _max_existing_year(directory: Path) -> int:
+            years = set()
+            if directory.exists():
+                for p in directory.glob("*.parquet"):
+                    m = re.search(r'(20\d{2})', p.name)
+                    if m:
+                        years.add(int(m.group(1)))
+            return max(years) if years else 0
 
-        current_max_year = max(existing_years) if existing_years else 2018
+        streams = [
+            (
+                "eeff_mensuales_bases",
+                _max_existing_year(INTERIM_EEFF_DIR),
+                RAW_EEFF_DIR,
+                INTERIM_EEFF_DIR,
+                "eeff_men",
+                None,
+                "b11_balances",
+                "balances B11",
+            ),
+            (
+                "eeff_trimestrales_bases",
+                _max_existing_year(INTERIM_TRIM_DIR),
+                RAW_TRIM_DIR,
+                INTERIM_TRIM_DIR,
+                "eeff_trim",
+                QUARTERLY_SEGMENTS,
+                "b11_trimestrales",
+                "balances trimestrales (Seg 4-5)",
+            ),
+        ]
 
-        download_plan_years = []
-        for y, d_id in sorted(catalog["eeff_mensuales_bases"].items()):
-            if force or y > current_max_year or y == latest_web_year:
-                download_plan_years.append((y, d_id))
+        download_tasks = []
+        for cat_key, max_local_year, raw_dir, interim_dir, prefix, seg_filter, ftype, label in streams:
+            entries = catalog.get(cat_key, {})
+            latest_stream_year = max(entries.keys(), default=0)
+            for y, d_id in sorted(entries.items()):
+                if force or y > max_local_year or y == latest_stream_year:
+                    download_tasks.append((y, d_id, raw_dir, interim_dir, prefix, seg_filter, ftype, label))
 
-        if not download_plan_years and not force:
+        current_max_year = streams[0][1]
+        if not download_tasks and not force:
             report("idle", 100, f"El sistema ya cuenta con los datos más recientes ({current_max_year}).")
             return {
                 "status": "already_up_to_date",
@@ -262,23 +324,21 @@ class SepsCrawler:
             }
 
         updated_files = []
-        total_steps = len(download_plan_years) + 1  # balances + patrimonio
-        current_step = 0
+        total_steps = len(download_tasks) + 1  # balances + patrimonio
 
-        # Descarga e ingesta de balances B11
-        for year, download_id in download_plan_years:
-            current_step += 1
-            pct = 10 + int((current_step / total_steps) * 60)
-            report("downloading", pct, f"Descargando balances B11 año {year} (ID {download_id})...")
+        # Descarga e ingesta unificada de balances B11 (mensuales y trimestrales)
+        for step_idx, (year, download_id, raw_dir, interim_dir, prefix, seg_filter, ftype, label) in enumerate(download_tasks, start=1):
+            pct = 10 + int((step_idx / total_steps) * 60)
+            report("downloading", pct, f"Descargando {label} año {year} (ID {download_id})...")
 
-            raw_zip = RAW_EEFF_DIR / f"descarga_{download_id}.zip"
+            raw_zip = raw_dir / f"descarga_{download_id}.zip"
             self.download_file(download_id, raw_zip)
 
-            report("extracting", pct + 5, f"Transformando balances B11 año {year} a Parquet...")
-            out_parquet = INTERIM_EEFF_DIR / f"eeff_men_{year}.parquet"
-            meta = self.extract_eeff_b11_to_parquet(raw_zip, out_parquet)
+            report("extracting", pct + 5, f"Transformando {label} año {year} a Parquet...")
+            out_parquet = interim_dir / f"{prefix}_{year}.parquet"
+            meta = self.extract_eeff_b11_to_parquet(raw_zip, out_parquet, segments_filter=seg_filter)
             updated_files.append({
-                "type": "b11_balances",
+                "type": ftype,
                 "year": year,
                 "download_id": download_id,
                 **meta

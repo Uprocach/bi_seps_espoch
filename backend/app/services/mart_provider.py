@@ -42,7 +42,7 @@ def verify_mart_integrity(target_dir: Path) -> Dict[str, Any]:
         "periods_count": 0,
         "latest_period": "",
         "checks_passed": 0,
-        "total_checks": 7,
+        "total_checks": 8,
         "errors": [],
     }
 
@@ -63,7 +63,7 @@ def verify_mart_integrity(target_dir: Path) -> Dict[str, Any]:
         n_entities = con.execute(f"SELECT COUNT(*) FROM read_parquet('{paths['dim_entities.parquet']}')").fetchone()[0]
         report["entities_count"] = n_entities
 
-        if n_provinces == 24 and n_segments >= 5 and n_entities >= 200:
+        if n_provinces == 24 and n_segments == 6 and n_entities >= 200:
             report["checks_passed"] += 1
         else:
             report["errors"].append(
@@ -117,6 +117,10 @@ def verify_mart_integrity(target_dir: Path) -> Dict[str, Any]:
                 SELECT period, indicator_id, round(sum(numerator), 2) AS sum_num, round(sum(denominator), 2) AS sum_den
                 FROM read_parquet('{paths['fct_indicators_entity_monthly.parquet']}')
                 WHERE period = ? AND indicator_id = 'morosidad_cartera_total'
+                  AND segment IN (
+                      SELECT code FROM read_parquet('{paths['dim_segments.parquet']}')
+                      WHERE reporting_frequency = 'monthly'
+                  )
                 GROUP BY period, indicator_id
             ),
             cty AS (
@@ -143,6 +147,26 @@ def verify_mart_integrity(target_dir: Path) -> Dict[str, Any]:
             report["checks_passed"] += 1
         else:
             report["errors"].append(f"Morosidad nacional fuera de rango plausible: {morosidad_val}%")
+
+        quarterly_counts = dict(
+            con.execute(
+                f"""
+                SELECT segment, COUNT(*)
+                FROM read_parquet('{paths['dim_entities.parquet']}')
+                WHERE segment IN ('SEGMENTO_4', 'SEGMENTO_5') AND is_active = TRUE
+                GROUP BY segment
+                """
+            ).fetchall()
+        )
+        seg4_active = quarterly_counts.get("SEGMENTO_4", 0)
+        seg5_active = quarterly_counts.get("SEGMENTO_5", 0)
+
+        if seg4_active > 0 and seg5_active > 0:
+            report["checks_passed"] += 1
+        else:
+            report["errors"].append(
+                f"Faltan entidades activas en segmentos trimestrales (SEGMENTO_4={seg4_active}, SEGMENTO_5={seg5_active})"
+            )
 
     except Exception as exc:
         report["errors"].append(f"Excepción durante la validación analítica: {str(exc)}")

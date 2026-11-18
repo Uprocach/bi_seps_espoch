@@ -336,7 +336,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onSelectView("entities")
                 if (onCloseMobile) onCloseMobile()
               }}
-              title={isCollapsed ? "Directorio de Cooperativas Segmentos 1 y 2" : undefined}
+              title={isCollapsed ? "Directorio de Cooperativas Segmentos 1–5" : undefined}
               className={`w-full text-left rounded-xl text-xs transition-all flex items-center group ${
                 isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2.5"
               } ${
@@ -359,7 +359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="min-w-0">
                     <span className="truncate font-semibold">Directorio COAC</span>
                     <p className="text-[10px] text-slate-400 font-normal truncate">
-                      Segmentos 1 y 2
+                      Segmentos 1–5
                     </p>
                   </div>
                 )}

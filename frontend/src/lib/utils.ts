@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { Segment } from "@/services/httpClient"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -89,4 +90,13 @@ export function formatCoopName(fullName: string | null | undefined): string {
   }
 
   return name
+}
+
+export function formatSegmentFilterLabel(
+  segment: Pick<Segment, "label" | "reporting_frequency">
+): { shortLabel: string; frequencyBadge: string | null } {
+  return {
+    shortLabel: segment.label.replace("Segmento ", "Seg "),
+    frequencyBadge: segment.reporting_frequency === "quarterly" ? "Trimestral" : null
+  }
 }
