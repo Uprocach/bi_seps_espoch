@@ -4,9 +4,9 @@
 
 **Blocked by:** 02: Cubos analíticos, API y Dashboard Macro para Segmentos 4 y 5 (Trimestral, EC y nulidad CUC)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] El Directorio de entidades lista cooperativas activas de `SEGMENTO_4` y `SEGMENTO_5` y permite filtrarlas por segmento y provincia.
-- [ ] El endpoint y la vista de Diagnóstico CAMEL manejan valores `null` sin errores, muestran un estado neutral (`Sin dato`) para las fichas ausentes (CUC 6 dígitos / Patrimonio Técnico) y las excluyen del conteo de alertas regulatorias.
-- [ ] Las exportaciones en CSV y Excel incluyen correctamente los registros trimestrales de cooperativas de Segmentos 4 y 5.
-- [ ] Pruebas en Backend y Frontend verifican la tolerancia a `null` en CAMEL, la visualización del badge neutral y la exportación.
+- [x] El Directorio de entidades lista cooperativas activas de `SEGMENTO_4` y `SEGMENTO_5` y permite filtrarlas por segmento y provincia.
+- [x] El endpoint y la vista de Diagnóstico CAMEL manejan valores `null` sin errores, muestran un estado neutral (`Sin dato`) para las fichas ausentes (CUC 6 dígitos / Patrimonio Técnico) y las excluyen del conteo de alertas regulatorias.
+- [x] Las exportaciones en CSV y Excel incluyen correctamente los registros trimestrales de cooperativas de Segmentos 4 y 5.
+- [x] Pruebas en Backend y Frontend verifican la tolerancia a `null` en CAMEL, la visualización del badge neutral y la exportación.

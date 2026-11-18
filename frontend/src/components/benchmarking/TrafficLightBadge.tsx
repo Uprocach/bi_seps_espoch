@@ -2,6 +2,7 @@ import React from "react"
 import { CheckCircle2, AlertTriangle, ShieldAlert } from "lucide-react"
 import type { CamelEvaluation, TrafficLightStatus } from "@/types/camel"
 import { formatIndicatorValue } from "@/lib/utils"
+import { resolveNeutralTrafficLightLabel } from "@/lib/benchmarkingModel"
 
 interface TrafficLightBadgeProps {
   evalItem: CamelEvaluation | undefined
@@ -16,10 +17,14 @@ export const TrafficLightBadge: React.FC<TrafficLightBadgeProps> = ({
   unit,
   size = "sm"
 }) => {
-  if (!evalItem || value === null) {
+  const neutralLabel = resolveNeutralTrafficLightLabel(value)
+  if (!evalItem || neutralLabel) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-slate-100 text-slate-500">
-        N/D
+      <span
+        title={evalItem?.message || "Dato no reportado o base contable insuficiente en el periodo."}
+        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200/80"
+      >
+        {neutralLabel ?? "Sin dato"}
       </span>
     )
   }

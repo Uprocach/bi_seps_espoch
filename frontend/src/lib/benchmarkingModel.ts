@@ -275,3 +275,7 @@ export function formatSegmentFilterLabel(segment: {
     frequencyBadge: segment.reporting_frequency === "quarterly" ? "Trimestral" : null
   }
 }
+
+export function resolveNeutralTrafficLightLabel(value: number | null | undefined): string | null {
+  return value === null || value === undefined ? "Sin dato" : null
+}

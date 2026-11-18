@@ -8,7 +8,8 @@ import {
   resolveEffectiveChartIndicator,
   buildChartSeriesData,
   buildBarComparisonData,
-  formatSegmentFilterLabel
+  formatSegmentFilterLabel,
+  resolveNeutralTrafficLightLabel
 } from "./benchmarkingModel"
 import type {
   BenchmarkingCompareResponse,
@@ -113,4 +114,10 @@ test("formatSegmentFilterLabel exposes Trimestral badge only for quarterly segme
     formatSegmentFilterLabel({ label: "Segmento 4", reporting_frequency: "quarterly" }),
     { shortLabel: "Seg 4", frequencyBadge: "Trimestral" }
   )
+})
+
+test("resolveNeutralTrafficLightLabel returns Sin dato for null indicator values", () => {
+  assert.equal(resolveNeutralTrafficLightLabel(null), "Sin dato")
+  assert.equal(resolveNeutralTrafficLightLabel(undefined), "Sin dato")
+  assert.equal(resolveNeutralTrafficLightLabel(12.5), null)
 })

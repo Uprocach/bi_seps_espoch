@@ -59,3 +59,47 @@ def test_supervision_export_excel_auditor_returns_200():
     assert res.status_code == 200
     assert "spreadsheetml.sheet" in res.headers["content-type"]
     assert res.content.startswith(b"PK\x03\x04")
+
+
+def test_supervision_compare_segmento4_handles_null_indicators():
+    """Valida que una COAC de Segmento 4 se compare en CAMEL contra Segmento 1 tolerando NULL en Ficha 52/62."""
+    client = TestClient(app)
+    token = create_access_token({"sub": "investigador.espoch", "role": "investigador"})
+    client.cookies.set(settings.COOKIE_NAME, token)
+
+    ruc_s4 = "0591718878001"
+    res = client.post("/api/v1/supervision/benchmarking/compare", json={
+        "entity_ids": [ruc_s4],
+        "start_date": "2025-01",
+        "end_date": "2025-09"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["entities"][0]["segment"] == "SEGMENTO_4"
+
+    liq = next(i for i in data["indicators"] if i["indicator_id"] == "liquidez_inmediata")
+    assert liq["entity_values"][ruc_s4] is None
+
+    mor = next(i for i in data["indicators"] if i["indicator_id"] == "morosidad_cartera_total")
+    assert mor["entity_values"][ruc_s4] is not None
+
+
+def test_supervision_export_csv_and_excel_segmento4():
+    """Valida que la exportación CSV y Excel incluya registros trimestrales de Segmento 4."""
+    client = TestClient(app)
+    token = create_access_token({"sub": "auditor.espoch", "role": "auditor"})
+    client.cookies.set(settings.COOKIE_NAME, token)
+
+    payload = {
+        "entity_ids": ["0591718878001"],
+        "start_date": "2025-01",
+        "end_date": "2025-09"
+    }
+    csv_res = client.post("/api/v1/supervision/export/csv", json=payload)
+    assert csv_res.status_code == 200
+    assert "0591718878001" in csv_res.text
+    assert "SEGMENTO_4" in csv_res.text
+
+    xlsx_res = client.post("/api/v1/supervision/export/excel", json=payload)
+    assert xlsx_res.status_code == 200
+    assert xlsx_res.content.startswith(b"PK\x03\x04")

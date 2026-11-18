@@ -33,7 +33,7 @@ const VIEW_TITLES: Record<ActiveView, { title: string; subtitle: string }> = {
   },
   entities: {
     title: "Directorio de Cooperativas de Ahorro y Crédito",
-    subtitle: "Proyecto ESPOCH - DI - 060 • Padrón de entidades Segmentos 1 y 2 bajo supervisión"
+    subtitle: "Proyecto ESPOCH - DI - 060 • Padrón de entidades Segmentos 1–5 bajo supervisión"
   },
   admin_users: {
     title: "Gestión del Padrón de Usuarios Acreditados",
